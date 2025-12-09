@@ -87,9 +87,12 @@ def get_parts():
 
 @app.route('/api/parts/search', methods=['GET'])
 def search_parts():
-    """Search for parts"""
+    """Search for parts by query"""
     try:
         query = request.args.get('q', '').lower()
+        
+        if not query:
+            return jsonify({'parts': []})
         
         worksheet = get_worksheet()
         all_values = worksheet.get_all_values()
@@ -99,29 +102,25 @@ def search_parts():
         
         headers = all_values[0]
         
-        # Search in Stock Code, Description, and Category
-        matching_parts = []
-        for row_idx, row in enumerate(all_values[1:], start=2):
-            if len(row) >= len(headers):
-                # Check if query matches
-                stock_code = row[1].lower() if len(row) > 1 else ''
-                description = row[3].lower() if len(row) > 3 else ''
-                category = row[6].lower() if len(row) > 6 else ''
-                
-                if query in stock_code or query in description or query in category:
-                    part = {'_row': row_idx}
-                    for i, header in enumerate(headers):
-                        part[header] = row[i] if i < len(row) else ''
-                    matching_parts.append(part)
+        # Search through parts
+        results = []
+        for row in all_values[1:]:
+            # Search in stock code, description, category
+            row_text = ' '.join(str(cell).lower() for cell in row)
+            if query in row_text:
+                part = {}
+                for i, header in enumerate(headers):
+                    part[header] = row[i] if i < len(row) else ''
+                results.append(part)
         
-        return jsonify({'parts': matching_parts, 'count': len(matching_parts)})
+        return jsonify({'parts': results, 'count': len(results)})
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/parts/critical', methods=['GET'])
 def get_critical_parts():
-    """Get critical parts and low stock items"""
+    """Get critical and low stock parts"""
     try:
         worksheet = get_worksheet()
         all_values = worksheet.get_all_values()
@@ -130,24 +129,32 @@ def get_critical_parts():
             return jsonify({'parts': []})
         
         headers = all_values[0]
-        
-        # Find column indices
-        critical_col = headers.index('Critical') if 'Critical' in headers else 5
-        current_col = headers.index('Current') if 'Current' in headers else 9
-        min_col = headers.index('Min') if 'Min' in headers else 10
-        
         critical_parts = []
+        
         for row_idx, row in enumerate(all_values[1:], start=2):
             if len(row) >= len(headers):
-                # Check if critical or low stock
-                is_critical = str(row[critical_col]).upper() in ['TRUE', 'YES', '1']
+                # Check if Critical column is True
+                is_critical = False
+                is_low_stock = False
                 
-                try:
-                    current = float(row[current_col]) if row[current_col] else 0
-                    min_val = float(row[min_col]) if row[min_col] else 0
-                    is_low_stock = current <= min_val
-                except:
-                    is_low_stock = False
+                # Find Critical column
+                if 'Critical' in headers:
+                    critical_idx = headers.index('Critical')
+                    if row[critical_idx].upper() in ['TRUE', 'YES', '1']:
+                        is_critical = True
+                
+                # Check if low stock (Current <= Min)
+                if 'Current' in headers and 'Min' in headers:
+                    current_idx = headers.index('Current')
+                    min_idx = headers.index('Min')
+                    
+                    try:
+                        current = float(row[current_idx]) if row[current_idx] else 0
+                        min_val = float(row[min_idx]) if row[min_idx] else 0
+                        if current <= min_val:
+                            is_low_stock = True
+                    except:
+                        is_low_stock = False
                 
                 if is_critical or is_low_stock:
                     part = {'_row': row_idx}
@@ -195,29 +202,6 @@ def update_part():
     
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-@app.route('/api/parts/batch-update', methods=['POST'])
-def batch_update_parts():
-    """Update multiple parts at once"""
-    try:
-        data = request.json
-        updates = data.get('updates', [])
-        
-        if not updates:
-            return jsonify({'error': 'updates array is required'}), 400
-        
-        worksheet = get_worksheet()
-        all_values = worksheet.get_all_values()
-        
-        headers = all_values[0]
-        stock_code_col = headers.index('Stock Code') if 'Stock Code' in headers else 1
-        current_col = headers.index('Current') if 'Current' in headers else 9
-        
-        results = []
-        
-        for update in updates:
-            stock_code = update.get('stock_code')
-            new_current = update.get('current')
 
 @app.route('/api/parts/update-full', methods=['POST'])
 def update_part_full():
@@ -286,34 +270,6 @@ def update_part_full():
             'success': True,
             'stock_code': stock_code,
             'updated_fields': updated_fields,
-            'updated_at': datetime.now().isoformat()
-        })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-            
-            # Find the row
-            for row_idx, row in enumerate(all_values[1:], start=2):
-                if len(row) > stock_code_col and row[stock_code_col] == stock_code:
-                    # Update the Current value
-                    worksheet.update_cell(row_idx, current_col + 1, new_current)
-                    results.append({
-                        'stock_code': stock_code,
-                        'success': True,
-                        'new_current': new_current
-                    })
-                    break
-            else:
-                results.append({
-                    'stock_code': stock_code,
-                    'success': False,
-                    'error': 'Part not found'
-                })
-        
-        return jsonify({
-            'results': results,
-            'total': len(results),
-            'successful': sum(1 for r in results if r['success']),
             'updated_at': datetime.now().isoformat()
         })
     
