@@ -1054,14 +1054,28 @@
                 }
             }
             
-            // Calculate Max and order qty only if we have numeric Min
+            // Calculate Max - use actual value from part or calculate
+            const maxStr = String(part.Max || '').trim().toUpperCase();
             let max = null;
-            let maxDisplay = 'N/A';
+            let maxDisplay = '';
             let orderQty = null;
             
-            if (hasNumericMin) {
-                max = min * 2;
-                maxDisplay = max;
+            // Try to parse Max from part data
+            if (maxStr && maxStr !== 'TBC' && maxStr !== 'NONE' && maxStr !== '') {
+                const maxParsed = parseFloat(maxStr);
+                if (!isNaN(maxParsed)) {
+                    max = maxParsed;
+                    maxDisplay = maxParsed;
+                }
+            }
+            
+            // If no Max set but we have numeric Min, suggest Min * 2
+            if (!max && hasNumericMin) {
+                maxDisplay = min * 2;  // Suggested value
+            }
+            
+            // Calculate order quantity
+            if (max && hasNumericMin) {
                 orderQty = calculateOrderQty(part);
             }
             
@@ -1208,7 +1222,7 @@
                             </div>
                             <div>
                                 <label style="font-size: 11px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px;">Max Stock</label>
-                                <input type="number" id="max_${containerId}_${index}" value="${hasNumericMin ? max : ''}" placeholder="${hasNumericMin ? 'Auto: Min × 2' : 'Set Min first'}" ${!hasNumericMin ? 'disabled' : ''} min="0" step="1" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
+                                <input type="number" id="max_${containerId}_${index}" value="${max || maxDisplay || ''}" placeholder="${maxDisplay ? 'Suggested: ' + maxDisplay : 'Enter max'}" min="0" step="1" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
                             </div>
                         </div>
                         <button onclick="updatePart('${part['Stock Code']}', '${containerId}', ${index})" style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer;">
@@ -1227,11 +1241,13 @@
             
             const currentInput = document.getElementById(`current_${containerId}_${index}`);
             const minInput = document.getElementById(`min_${containerId}_${index}`);
+            const maxInput = document.getElementById(`max_${containerId}_${index}`);
             const binInput = document.getElementById(`bin_${containerId}_${index}`);
             
             console.log('Inputs found:', {
                 current: currentInput?.value,
                 min: minInput?.value,
+                max: maxInput?.value,
                 bin: binInput?.value
             });
             
@@ -1242,6 +1258,7 @@
             // Collect changes - send actual values, not empty strings
             const current = currentInput?.value?.trim();
             const min = minInput?.value?.trim();
+            const max = maxInput?.value?.trim();
             const bin = binInput?.value?.trim();
             
             if (current !== '' && current !== undefined) {
@@ -1249,6 +1266,9 @@
             }
             if (min !== '' && min !== undefined) {
                 updateData.min = min;
+            }
+            if (max !== '' && max !== undefined) {
+                updateData.max = max;
             }
             if (bin !== '' && bin !== undefined) {
                 updateData.bin = bin;
@@ -1291,6 +1311,7 @@
                     if (partIndex !== -1) {
                         if (updateData.current) allPartsData[partIndex].Current = updateData.current;
                         if (updateData.min) allPartsData[partIndex].Min = updateData.min;
+                        if (updateData.max) allPartsData[partIndex].Max = updateData.max;
                         if (updateData.bin) allPartsData[partIndex].Bin = updateData.bin;
                     }
                     
