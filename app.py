@@ -208,15 +208,19 @@ def update_part_full():
     """Update multiple fields of a part (Current, Min, Bin)"""
     try:
         data = request.json
+        print(f"[UPDATE-FULL] Received data: {data}")
+        
         stock_code = data.get('stock_code')
         
         if not stock_code:
+            print("[UPDATE-FULL] Error: No stock code provided")
             return jsonify({'error': 'stock_code is required'}), 400
         
         worksheet = get_worksheet()
         all_values = worksheet.get_all_values()
         
         headers = all_values[0]
+        print(f"[UPDATE-FULL] Headers: {headers}")
         
         # Find column indices
         stock_code_col = headers.index('Stock Code') if 'Stock Code' in headers else 1
@@ -224,14 +228,18 @@ def update_part_full():
         min_col = headers.index('Min') if 'Min' in headers else 10
         bin_col = headers.index('Bin') if 'Bin' in headers else 12
         
+        print(f"[UPDATE-FULL] Column indices - Stock Code: {stock_code_col}, Current: {current_col}, Min: {min_col}, Bin: {bin_col}")
+        
         # Find the row
         row_idx = None
         for idx, row in enumerate(all_values[1:], start=2):
             if len(row) > stock_code_col and row[stock_code_col] == stock_code:
                 row_idx = idx
+                print(f"[UPDATE-FULL] Found part at row {row_idx}")
                 break
         
         if not row_idx:
+            print(f"[UPDATE-FULL] Part not found: {stock_code}")
             return jsonify({'error': 'Part not found'}), 404
         
         # Prepare batch updates
@@ -239,41 +247,57 @@ def update_part_full():
         updated_fields = []
         
         # Update Current stock
-        if 'current' in data:
+        if 'current' in data and data['current'] != '':
+            cell_range = f'{chr(65 + current_col)}{row_idx}'
             updates.append({
-                'range': f'{chr(65 + current_col)}{row_idx}',
+                'range': cell_range,
                 'values': [[data['current']]]
             })
             updated_fields.append('current')
+            print(f"[UPDATE-FULL] Will update Current at {cell_range} to {data['current']}")
         
         # Update Min
-        if 'min' in data:
+        if 'min' in data and data['min'] != '':
+            cell_range = f'{chr(65 + min_col)}{row_idx}'
             updates.append({
-                'range': f'{chr(65 + min_col)}{row_idx}',
+                'range': cell_range,
                 'values': [[data['min']]]
             })
             updated_fields.append('min')
+            print(f"[UPDATE-FULL] Will update Min at {cell_range} to {data['min']}")
         
         # Update Bin
-        if 'bin' in data:
+        if 'bin' in data and data['bin'] != '':
+            cell_range = f'{chr(65 + bin_col)}{row_idx}'
             updates.append({
-                'range': f'{chr(65 + bin_col)}{row_idx}',
+                'range': cell_range,
                 'values': [[data['bin']]]
             })
             updated_fields.append('bin')
+            print(f"[UPDATE-FULL] Will update Bin at {cell_range} to {data['bin']}")
         
         # Perform batch update
         if updates:
+            print(f"[UPDATE-FULL] Performing batch update with {len(updates)} updates")
             worksheet.batch_update(updates)
+            print("[UPDATE-FULL] Batch update successful")
+        else:
+            print("[UPDATE-FULL] No updates to perform")
         
-        return jsonify({
+        response = {
             'success': True,
             'stock_code': stock_code,
             'updated_fields': updated_fields,
             'updated_at': datetime.now().isoformat()
-        })
+        }
+        print(f"[UPDATE-FULL] Returning success: {response}")
+        
+        return jsonify(response)
     
     except Exception as e:
+        print(f"[UPDATE-FULL] Exception: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/health', methods=['GET'])
