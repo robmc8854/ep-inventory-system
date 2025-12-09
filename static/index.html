@@ -1307,8 +1307,8 @@
                             loadOrderList();
                         }
                         
-                        // Update stats
-                        loadAllParts();
+                        // Update stats only (not full reload)
+                        loadCriticalStats();
                     }, 500);
                 } else {
                     console.error('Update failed:', data);
@@ -1321,16 +1321,6 @@
                 // Restore button
                 button.textContent = originalText;
                 button.disabled = false;
-            }
-        }
-                        // Update stats
-                        loadAllParts();
-                    }, 500);
-                } else {
-                    alert('Failed to update: ' + (data.error || 'Unknown error'));
-                }
-            } catch (error) {
-                alert('Error updating part: ' + error.message);
             }
         }
         
