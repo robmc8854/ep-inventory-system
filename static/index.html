@@ -822,19 +822,34 @@
         function calculateOrderQty(part) {
             const current = parseFloat(part.Current) || 0;
             const minStr = String(part.Min || '').trim().toUpperCase();
+            const maxStr = String(part.Max || '').trim().toUpperCase();
             
-            // If Min is TBC or empty, we can't calculate order qty
-            if (!minStr || minStr === 'TBC' || minStr === 'NONE') {
-                return null; // Can't calculate
+            // Try to get Max from part data first
+            let max = null;
+            if (maxStr && maxStr !== 'TBC' && maxStr !== 'NONE' && maxStr !== '') {
+                const maxParsed = parseFloat(maxStr);
+                if (!isNaN(maxParsed)) {
+                    max = maxParsed;
+                }
             }
             
-            let min = parseFloat(minStr);
-            if (isNaN(min)) {
-                return null; // Can't calculate
+            // If no Max set, try to calculate from Min
+            if (!max) {
+                // If Min is TBC or empty, we can't calculate order qty
+                if (!minStr || minStr === 'TBC' || minStr === 'NONE') {
+                    return null; // Can't calculate
+                }
+                
+                let min = parseFloat(minStr);
+                if (isNaN(min)) {
+                    return null; // Can't calculate
+                }
+                
+                // Default Max to Min * 2 for parts with numeric Min
+                max = min * 2;
             }
             
-            // Default Max to Min * 2 for parts with numeric Min
-            const max = min * 2;
+            // Calculate order quantity
             const orderQty = Math.max(0, max - current);
             return Math.ceil(orderQty);
         }
@@ -1129,8 +1144,8 @@
                 `;
             }
             
-            // Order quantity display (only if numeric Min and needs ordering)
-            const orderQtyDisplay = needsOrderingValue ? 
+            // Order quantity display (only if we have a valid order quantity > 0)
+            const orderQtyDisplay = (orderQty !== null && orderQty > 0) ? 
                 `<div class="order-quantity ${isCritical && isOutOfStock ? 'urgent' : ''}">
                     📦 Order: ${orderQty} ${part['Purchase Unit'] || 'units'}
                 </div>` : '';
@@ -1142,12 +1157,12 @@
                 `<div class="quick-info-item">Min: <strong>${minDisplay || 'Not set'}</strong></div>
                  <div class="quick-info-item" style="color: #ff9800;">⚠️ Min TBC - can't calculate order qty</div>`;
             
-            // Order calculation detail (only if applicable)
-            const orderCalcDetail = needsOrderingValue ? `
+            // Order calculation detail (only if we have valid order qty > 0)
+            const orderCalcDetail = (orderQty !== null && orderQty > 0) ? `
                 <div class="detail-item" style="grid-column: 1 / -1;">
                     <div class="detail-label">Order Calculation</div>
                     <div class="detail-value" style="color: #ff9800;">
-                        Max (${max}) - Current (${current}) = <strong>${orderQty}</strong> ${part['Purchase Unit'] || 'units'}
+                        Max (${max || maxDisplay}) - Current (${current}) = <strong>${orderQty}</strong> ${part['Purchase Unit'] || 'units'}
                     </div>
                 </div>
             ` : '';
