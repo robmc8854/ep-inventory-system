@@ -1223,36 +1223,53 @@
         
         // Update part with all fields (Current, Min, Bin)
         async function updatePart(stockCode, containerId, index) {
+            console.log('updatePart called:', stockCode, containerId, index);
+            
             const currentInput = document.getElementById(`current_${containerId}_${index}`);
             const minInput = document.getElementById(`min_${containerId}_${index}`);
             const binInput = document.getElementById(`bin_${containerId}_${index}`);
+            
+            console.log('Inputs found:', {
+                current: currentInput?.value,
+                min: minInput?.value,
+                bin: binInput?.value
+            });
             
             const updateData = {
                 stock_code: stockCode
             };
             
-            // Collect changes
-            const current = currentInput.value.trim();
-            const min = minInput.value.trim();
-            const bin = binInput.value.trim();
+            // Collect changes - send actual values, not empty strings
+            const current = currentInput?.value?.trim();
+            const min = minInput?.value?.trim();
+            const bin = binInput?.value?.trim();
             
-            if (current !== '') {
+            if (current !== '' && current !== undefined) {
                 updateData.current = current;
             }
-            if (min !== '') {
+            if (min !== '' && min !== undefined) {
                 updateData.min = min;
             }
-            if (bin !== '') {
+            if (bin !== '' && bin !== undefined) {
                 updateData.bin = bin;
             }
             
+            console.log('Update data:', updateData);
+            
             // Must have at least one field to update
             if (Object.keys(updateData).length === 1) {
-                alert('No changes to save');
+                alert('No changes to save - all fields are empty');
                 return;
             }
             
+            // Show loading
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '⏳ Saving...';
+            button.disabled = true;
+            
             try {
+                console.log('Sending request to /api/parts/update-full');
                 const response = await fetch('/api/parts/update-full', {
                     method: 'POST',
                     headers: {
@@ -1261,7 +1278,9 @@
                     body: JSON.stringify(updateData)
                 });
                 
+                console.log('Response status:', response.status);
                 const data = await response.json();
+                console.log('Response data:', data);
                 
                 if (data.success) {
                     const fields = data.updated_fields.join(', ');
@@ -1277,17 +1296,33 @@
                     
                     // Reload current view after a short delay
                     setTimeout(() => {
-                        const activeTab = document.querySelector('.tab.active').textContent.toLowerCase();
+                        const activeTab = document.querySelector('.tab.active')?.textContent?.toLowerCase();
                         if (activeTab === 'all') {
                             displayFilteredParts();
                         } else if (activeTab === 'critical') {
                             loadCriticalParts();
-                        } else if (activeTab.includes('low')) {
+                        } else if (activeTab?.includes('low')) {
                             loadLowStockParts();
-                        } else if (activeTab.includes('order')) {
+                        } else if (activeTab?.includes('order')) {
                             loadOrderList();
                         }
                         
+                        // Update stats
+                        loadAllParts();
+                    }, 500);
+                } else {
+                    console.error('Update failed:', data);
+                    alert('Failed to update: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating part:', error);
+                alert('Error updating part: ' + error.message);
+            } finally {
+                // Restore button
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
                         // Update stats
                         loadAllParts();
                     }, 500);
