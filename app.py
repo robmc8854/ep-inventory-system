@@ -205,7 +205,7 @@ def update_part():
 
 @app.route('/api/parts/update-full', methods=['POST'])
 def update_part_full():
-    """Update multiple fields of a part (Current, Min, Bin)"""
+    """Update multiple fields of a part (Current, Min, Max, Bin)"""
     try:
         data = request.json
         print(f"[UPDATE-FULL] Received data: {data}")
@@ -226,9 +226,10 @@ def update_part_full():
         stock_code_col = headers.index('Stock Code') if 'Stock Code' in headers else 1
         current_col = headers.index('Current') if 'Current' in headers else 9
         min_col = headers.index('Min') if 'Min' in headers else 10
-        bin_col = headers.index('Bin') if 'Bin' in headers else 12
+        max_col = headers.index('Max') if 'Max' in headers else 11
+        bin_col = headers.index('Bin') if 'Bin' in headers else 13
         
-        print(f"[UPDATE-FULL] Column indices - Stock Code: {stock_code_col}, Current: {current_col}, Min: {min_col}, Bin: {bin_col}")
+        print(f"[UPDATE-FULL] Column indices - Stock Code: {stock_code_col}, Current: {current_col}, Min: {min_col}, Max: {max_col}, Bin: {bin_col}")
         
         # Find the row
         row_idx = None
@@ -265,6 +266,16 @@ def update_part_full():
             })
             updated_fields.append('min')
             print(f"[UPDATE-FULL] Will update Min at {cell_range} to {data['min']}")
+        
+        # Update Max
+        if 'max' in data and data['max'] != '':
+            cell_range = f'{chr(65 + max_col)}{row_idx}'
+            updates.append({
+                'range': cell_range,
+                'values': [[data['max']]]
+            })
+            updated_fields.append('max')
+            print(f"[UPDATE-FULL] Will update Max at {cell_range} to {data['max']}")
         
         # Update Bin
         if 'bin' in data and data['bin'] != '':
