@@ -218,6 +218,79 @@ def batch_update_parts():
         for update in updates:
             stock_code = update.get('stock_code')
             new_current = update.get('current')
+
+@app.route('/api/parts/update-full', methods=['POST'])
+def update_part_full():
+    """Update multiple fields of a part (Current, Min, Bin)"""
+    try:
+        data = request.json
+        stock_code = data.get('stock_code')
+        
+        if not stock_code:
+            return jsonify({'error': 'stock_code is required'}), 400
+        
+        worksheet = get_worksheet()
+        all_values = worksheet.get_all_values()
+        
+        headers = all_values[0]
+        
+        # Find column indices
+        stock_code_col = headers.index('Stock Code') if 'Stock Code' in headers else 1
+        current_col = headers.index('Current') if 'Current' in headers else 9
+        min_col = headers.index('Min') if 'Min' in headers else 10
+        bin_col = headers.index('Bin') if 'Bin' in headers else 12
+        
+        # Find the row
+        row_idx = None
+        for idx, row in enumerate(all_values[1:], start=2):
+            if len(row) > stock_code_col and row[stock_code_col] == stock_code:
+                row_idx = idx
+                break
+        
+        if not row_idx:
+            return jsonify({'error': 'Part not found'}), 404
+        
+        # Prepare batch updates
+        updates = []
+        updated_fields = []
+        
+        # Update Current stock
+        if 'current' in data:
+            updates.append({
+                'range': f'{chr(65 + current_col)}{row_idx}',
+                'values': [[data['current']]]
+            })
+            updated_fields.append('current')
+        
+        # Update Min
+        if 'min' in data:
+            updates.append({
+                'range': f'{chr(65 + min_col)}{row_idx}',
+                'values': [[data['min']]]
+            })
+            updated_fields.append('min')
+        
+        # Update Bin
+        if 'bin' in data:
+            updates.append({
+                'range': f'{chr(65 + bin_col)}{row_idx}',
+                'values': [[data['bin']]]
+            })
+            updated_fields.append('bin')
+        
+        # Perform batch update
+        if updates:
+            worksheet.batch_update(updates)
+        
+        return jsonify({
+            'success': True,
+            'stock_code': stock_code,
+            'updated_fields': updated_fields,
+            'updated_at': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
             
             # Find the row
             for row_idx, row in enumerate(all_values[1:], start=2):
