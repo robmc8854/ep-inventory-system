@@ -109,16 +109,27 @@
             background: white;
             border: none;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: #666;
             transition: all 0.3s;
-            min-width: 80px;
+            min-width: 70px;
         }
         
         .tab.active {
             color: #667eea;
             border-bottom: 3px solid #667eea;
+        }
+        
+        .tab.order-tab {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .tab.order-tab.active {
+            background: #f57c00;
+            color: white;
+            border-bottom: 3px solid #e65100;
         }
         
         .results-info {
@@ -294,6 +305,82 @@
         .quick-info-item strong {
             color: #333;
             font-weight: 600;
+        }
+        
+        .order-quantity {
+            display: inline-block;
+            background: #ff9800;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .order-quantity.urgent {
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .stock-bar-container {
+            margin-top: 10px;
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .stock-bar {
+            height: 100%;
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+        
+        .stock-bar.critical {
+            background: #ff4444;
+        }
+        
+        .stock-bar.low {
+            background: #ff9800;
+        }
+        
+        .stock-bar.ok {
+            background: #00C851;
+        }
+        
+        .stock-bar.over {
+            background: #2196F3;
+        }
+        
+        .order-summary {
+            position: sticky;
+            bottom: 0;
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+            padding: 15px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .order-summary.show {
+            display: flex;
+        }
+        
+        .order-summary-text {
+            font-weight: 600;
+        }
+        
+        .order-summary-count {
+            font-size: 24px;
+            font-weight: 700;
         }
         
         .details {
@@ -493,6 +580,7 @@
         <button class="tab active" onclick="switchTab('all')">ALL</button>
         <button class="tab" onclick="switchTab('critical')">CRITICAL</button>
         <button class="tab" onclick="switchTab('lowstock')">LOW STOCK</button>
+        <button class="tab order-tab" onclick="switchTab('order')">📋 ORDER</button>
     </div>
     
     <div class="content">
@@ -504,6 +592,7 @@
                     <option value="bin">Sort: Bin</option>
                     <option value="stock">Sort: Stock Level</option>
                     <option value="critical">Sort: Critical First</option>
+                    <option value="order">Sort: Order Qty</option>
                 </select>
             </div>
             <div class="stats">
@@ -517,7 +606,7 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-value" id="lowStockCount">-</div>
-                    <div class="stat-label">Low Stock</div>
+                    <div class="stat-label">Need Order</div>
                 </div>
             </div>
             <div id="allParts"></div>
@@ -536,6 +625,29 @@
             </div>
             <div id="lowstockParts"></div>
         </div>
+        
+        <div id="order" class="tab-content">
+            <div class="results-info">
+                <span id="orderResultsCount">Loading...</span>
+                <select class="sort-dropdown" id="orderSortSelect" onchange="sortOrderList()">
+                    <option value="urgent">Sort: Most Urgent</option>
+                    <option value="quantity">Sort: Highest Qty</option>
+                    <option value="bin">Sort: Bin Location</option>
+                    <option value="category">Sort: Category</option>
+                </select>
+            </div>
+            <div id="orderParts"></div>
+        </div>
+    </div>
+    
+    <div class="order-summary" id="orderSummary">
+        <div>
+            <div class="order-summary-text">Parts to Order</div>
+            <div class="order-summary-count" id="orderCount">0</div>
+        </div>
+        <button style="background: white; color: #ff9800; padding: 10px 20px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;" onclick="switchTab('order')">
+            View Order List
+        </button>
     </div>
     
     <script>
@@ -557,6 +669,16 @@
                 
                 // Update stats
                 document.getElementById('totalParts').textContent = allPartsData.length;
+                
+                // Calculate parts needing order (only those with numeric Min values)
+                const partsToOrder = allPartsData.filter(part => needsOrdering(part));
+                
+                document.getElementById('lowStockCount').textContent = partsToOrder.length;
+                document.getElementById('orderCount').textContent = partsToOrder.length;
+                
+                if (partsToOrder.length > 0) {
+                    document.getElementById('orderSummary').classList.add('show');
+                }
                 
                 // Populate filter dropdowns
                 populateFilters();
@@ -674,6 +796,13 @@
                         return aStock - bStock;
                     });
                     break;
+                case 'order':
+                    sorted.sort((a, b) => {
+                        const aOrder = calculateOrderQty(a);
+                        const bOrder = calculateOrderQty(b);
+                        return bOrder - aOrder;
+                    });
+                    break;
                 case 'critical':
                     sorted.sort((a, b) => {
                         const aCrit = a.Critical === 'True' || a.Critical === 'TRUE';
@@ -686,6 +815,121 @@
                     });
                     break;
             }
+            return sorted;
+        }
+        
+        // Calculate order quantity needed - handles TBC and empty Min values
+        function calculateOrderQty(part) {
+            const current = parseFloat(part.Current) || 0;
+            const minStr = String(part.Min || '').trim().toUpperCase();
+            
+            // If Min is TBC or empty, we can't calculate order qty
+            if (!minStr || minStr === 'TBC' || minStr === 'NONE') {
+                return null; // Can't calculate
+            }
+            
+            let min = parseFloat(minStr);
+            if (isNaN(min)) {
+                return null; // Can't calculate
+            }
+            
+            // Default Max to Min * 2 for parts with numeric Min
+            const max = min * 2;
+            const orderQty = Math.max(0, max - current);
+            return Math.ceil(orderQty);
+        }
+        
+        // Check if part needs ordering
+        function needsOrdering(part) {
+            const orderQty = calculateOrderQty(part);
+            return orderQty !== null && orderQty > 0;
+        }
+        
+        // Check if part is low stock
+        function isLowStock(part) {
+            const current = parseFloat(part.Current) || 0;
+            const minStr = String(part.Min || '').trim().toUpperCase();
+            
+            if (!minStr || minStr === 'TBC' || minStr === 'NONE') {
+                return false; // Can't determine without Min
+            }
+            
+            const min = parseFloat(minStr);
+            if (isNaN(min)) {
+                return false;
+            }
+            
+            return current > 0 && current <= min;
+        }
+        
+        // Load order list
+        async function loadOrderList() {
+            showLoading('orderParts');
+            
+            // Get parts that need ordering (only those with numeric Min values)
+            const partsToOrder = allPartsData.filter(part => needsOrdering(part));
+            
+            // Sort by urgency (critical and out of stock first)
+            const sorted = sortOrderList(partsToOrder, 'urgent');
+            
+            document.getElementById('orderResultsCount').textContent = `${sorted.length} parts need ordering`;
+            document.getElementById('orderCount').textContent = sorted.length;
+            
+            if (sorted.length > 0) {
+                document.getElementById('orderSummary').classList.add('show');
+            } else {
+                document.getElementById('orderSummary').classList.remove('show');
+            }
+            
+            displayParts(sorted, 'orderParts');
+        }
+        
+        // Sort order list
+        function sortOrderList(parts = null, sortBy = null) {
+            const partsToSort = parts || allPartsData.filter(part => needsOrdering(part));
+            
+            const sortMethod = sortBy || document.getElementById('orderSortSelect')?.value || 'urgent';
+            const sorted = [...partsToSort];
+            
+            switch(sortMethod) {
+                case 'urgent':
+                    sorted.sort((a, b) => {
+                        const aCrit = a.Critical === 'True' || a.Critical === 'TRUE';
+                        const bCrit = b.Critical === 'True' || b.Critical === 'TRUE';
+                        const aStock = parseFloat(a.Current) || 0;
+                        const bStock = parseFloat(b.Current) || 0;
+                        
+                        // Critical out of stock first
+                        if (aCrit && aStock === 0 && !(bCrit && bStock === 0)) return -1;
+                        if (bCrit && bStock === 0 && !(aCrit && aStock === 0)) return 1;
+                        
+                        // Then critical low stock
+                        if (aCrit && !bCrit) return -1;
+                        if (bCrit && !aCrit) return 1;
+                        
+                        // Then by stock level (lowest first)
+                        return aStock - bStock;
+                    });
+                    break;
+                case 'quantity':
+                    sorted.sort((a, b) => {
+                        const aQty = calculateOrderQty(a) || 0;
+                        const bQty = calculateOrderQty(b) || 0;
+                        return bQty - aQty;
+                    });
+                    break;
+                case 'bin':
+                    sorted.sort((a, b) => (a.Bin || 'ZZZ').localeCompare(b.Bin || 'ZZZ'));
+                    break;
+                case 'category':
+                    sorted.sort((a, b) => (a.Category || 'ZZZ').localeCompare(b.Category || 'ZZZ'));
+                    break;
+            }
+            
+            if (!parts) {
+                displayParts(sorted, 'orderParts');
+            }
+            
             return sorted;
         }
         
@@ -719,10 +963,25 @@
         async function loadLowStockParts() {
             showLoading('lowstockParts');
             try {
-                const response = await fetch('/api/parts/critical');
-                const data = await response.json();
-                document.getElementById('lowstockResultsCount').textContent = `${data.parts.length} parts below minimum`;
-                displayParts(data.parts, 'lowstockParts');
+                // Get parts below their Min (only those with numeric Min)
+                const lowStock = allPartsData.filter(part => {
+                    const current = parseFloat(part.Current) || 0;
+                    const minStr = String(part.Min || '').trim().toUpperCase();
+                    
+                    if (!minStr || minStr === 'TBC' || minStr === 'NONE') {
+                        return false;
+                    }
+                    
+                    const min = parseFloat(minStr);
+                    if (isNaN(min)) {
+                        return false;
+                    }
+                    
+                    return current <= min;
+                });
+                
+                document.getElementById('lowstockResultsCount').textContent = `${lowStock.length} parts below minimum`;
+                displayParts(lowStock, 'lowstockParts');
             } catch (error) {
                 showError('lowstockParts', 'Failed to load low stock parts');
             }
@@ -775,13 +1034,41 @@
             card.classList.toggle('expanded');
         }
         
-        // Create part card HTML - new expandable design
+        // Create part card HTML - handles TBC/empty/numeric Min values
         function createPartCard(part, index, containerId) {
             const isCritical = part.Critical === 'True' || part.Critical === 'TRUE';
             const current = parseFloat(part.Current) || 0;
-            const min = parseFloat(part.Min) || 0;
+            const minStr = String(part.Min || '').trim().toUpperCase();
+            
+            // Parse Min value
+            let min = null;
+            let minDisplay = minStr;
+            let hasNumericMin = false;
+            
+            if (minStr && minStr !== 'TBC' && minStr !== 'NONE' && minStr !== '') {
+                const minParsed = parseFloat(minStr);
+                if (!isNaN(minParsed)) {
+                    min = minParsed;
+                    minDisplay = minParsed;
+                    hasNumericMin = true;
+                }
+            }
+            
+            // Calculate Max and order qty only if we have numeric Min
+            let max = null;
+            let maxDisplay = 'N/A';
+            let orderQty = null;
+            
+            if (hasNumericMin) {
+                max = min * 2;
+                maxDisplay = max;
+                orderQty = calculateOrderQty(part);
+            }
+            
+            // Determine stock status
             const isOutOfStock = current === 0;
-            const isLowStock = current > 0 && current <= min;
+            const isLowStockValue = hasNumericMin && isLowStock(part);
+            const needsOrderingValue = hasNumericMin && needsOrdering(part);
             
             let stockClass = 'ok';
             let badgeClass = 'neutral';
@@ -791,7 +1078,7 @@
                 stockClass = 'critical';
                 badgeClass = 'critical';
                 badgeText = 'CRITICAL OUT';
-            } else if (isCritical && isLowStock) {
+            } else if (isCritical && isLowStockValue) {
                 stockClass = 'critical';
                 badgeClass = 'critical';
                 badgeText = 'CRITICAL LOW';
@@ -802,7 +1089,7 @@
                 stockClass = 'critical';
                 badgeClass = 'critical';
                 badgeText = 'OUT OF STOCK';
-            } else if (isLowStock) {
+            } else if (isLowStockValue) {
                 stockClass = 'low';
                 badgeClass = 'low';
                 badgeText = 'LOW STOCK';
@@ -812,12 +1099,52 @@
                 `<div class="bin-location">📍 ${part.Bin}</div>` : 
                 `<div class="bin-location no-bin">⚠️ NO BIN</div>`;
             
+            // Stock bar percentage (only if numeric Min exists)
+            let stockBar = '';
+            if (hasNumericMin) {
+                const stockPercent = max > 0 ? Math.min((current / max) * 100, 100) : 0;
+                let barClass = 'ok';
+                if (current === 0) barClass = 'critical';
+                else if (current < min) barClass = 'low';
+                else if (current > max) barClass = 'over';
+                
+                stockBar = `
+                    <div class="stock-bar-container">
+                        <div class="stock-bar ${barClass}" style="width: ${stockPercent}%"></div>
+                    </div>
+                `;
+            }
+            
+            // Order quantity display (only if numeric Min and needs ordering)
+            const orderQtyDisplay = needsOrderingValue ? 
+                `<div class="order-quantity ${isCritical && isOutOfStock ? 'urgent' : ''}">
+                    📦 Order: ${orderQty} ${part['Purchase Unit'] || 'units'}
+                </div>` : '';
+            
+            // Min/Max display
+            const minMaxDisplay = hasNumericMin ? 
+                `<div class="quick-info-item">Min: <strong>${minDisplay}</strong></div>
+                 <div class="quick-info-item">Max: <strong>${maxDisplay}</strong></div>` :
+                `<div class="quick-info-item">Min: <strong>${minDisplay || 'Not set'}</strong></div>
+                 <div class="quick-info-item" style="color: #ff9800;">⚠️ Min TBC - can't calculate order qty</div>`;
+            
+            // Order calculation detail (only if applicable)
+            const orderCalcDetail = needsOrderingValue ? `
+                <div class="detail-item" style="grid-column: 1 / -1;">
+                    <div class="detail-label">Order Calculation</div>
+                    <div class="detail-value" style="color: #ff9800;">
+                        Max (${max}) - Current (${current}) = <strong>${orderQty}</strong> ${part['Purchase Unit'] || 'units'}
+                    </div>
+                </div>
+            ` : '';
+            
             return `
                 <div class="part-card" id="card-${containerId}-${index}" onclick="toggleCard('${containerId}', ${index})">
                     <div class="part-header">
                         <div class="part-main-info">
                             <div class="stock-code">${part['Stock Code'] || 'N/A'}</div>
                             ${binLocation}
+                            ${orderQtyDisplay}
                         </div>
                         <div class="stock-status">
                             <div class="stock-level ${stockClass}">${current}</div>
@@ -829,9 +1156,11 @@
                     <div class="description">${part.Description || 'No description'}</div>
                     
                     <div class="quick-stock-info">
-                        <div class="quick-info-item">Min: <strong>${min}</strong></div>
+                        ${minMaxDisplay}
                         <div class="quick-info-item">Category: <strong>${part.Category || 'N/A'}</strong></div>
                     </div>
+                    
+                    ${stockBar}
                     
                     <div class="details">
                         <div class="detail-item">
@@ -858,11 +1187,33 @@
                             <div class="detail-label">Store</div>
                             <div class="detail-value">${part.Store || 'N/A'}</div>
                         </div>
+                        ${orderCalcDetail}
                     </div>
                     
                     <div class="stock-update" onclick="event.stopPropagation()">
-                        <input type="number" id="stock_${containerId}_${index}" placeholder="New stock level" min="0" />
-                        <button onclick="updateStock('${part['Stock Code']}', '${containerId}', ${index})">Update</button>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <div>
+                                <label style="font-size: 11px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px;">Current Stock</label>
+                                <input type="number" id="current_${containerId}_${index}" value="${current}" min="0" step="1" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px;">Bin Location</label>
+                                <input type="text" id="bin_${containerId}_${index}" value="${part.Bin || ''}" placeholder="e.g. A12" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                            <div>
+                                <label style="font-size: 11px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px;">Min Stock</label>
+                                <input type="text" id="min_${containerId}_${index}" value="${minStr || ''}" placeholder="e.g. 10 or TBC" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px;">Max Stock</label>
+                                <input type="number" id="max_${containerId}_${index}" value="${hasNumericMin ? max : ''}" placeholder="${hasNumericMin ? 'Auto: Min × 2' : 'Set Min first'}" ${!hasNumericMin ? 'disabled' : ''} min="0" step="1" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
+                            </div>
+                        </div>
+                        <button onclick="updatePart('${part['Stock Code']}', '${containerId}', ${index})" style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer;">
+                            💾 Save All Changes
+                        </button>
                     </div>
                     
                     <span class="expand-icon">▼</span>
@@ -870,58 +1221,87 @@
             `;
         }
         
-        // Update stock level
-        async function updateStock(stockCode, containerId, index) {
-            const input = document.getElementById(`stock_${containerId}_${index}`);
-            const newValue = input.value;
+        // Update part with all fields (Current, Min, Bin)
+        async function updatePart(stockCode, containerId, index) {
+            const currentInput = document.getElementById(`current_${containerId}_${index}`);
+            const minInput = document.getElementById(`min_${containerId}_${index}`);
+            const binInput = document.getElementById(`bin_${containerId}_${index}`);
             
-            if (!newValue || newValue < 0) {
-                alert('Please enter a valid stock level');
+            const updateData = {
+                stock_code: stockCode
+            };
+            
+            // Collect changes
+            const current = currentInput.value.trim();
+            const min = minInput.value.trim();
+            const bin = binInput.value.trim();
+            
+            if (current !== '') {
+                updateData.current = current;
+            }
+            if (min !== '') {
+                updateData.min = min;
+            }
+            if (bin !== '') {
+                updateData.bin = bin;
+            }
+            
+            // Must have at least one field to update
+            if (Object.keys(updateData).length === 1) {
+                alert('No changes to save');
                 return;
             }
             
             try {
-                const response = await fetch('/api/parts/update', {
+                const response = await fetch('/api/parts/update-full', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        stock_code: stockCode,
-                        current: newValue
-                    })
+                    body: JSON.stringify(updateData)
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    showSuccess(`✓ Updated ${stockCode} to ${newValue}`);
-                    input.value = '';
+                    const fields = data.updated_fields.join(', ');
+                    showSuccess(`✓ Updated ${stockCode}: ${fields}`);
                     
                     // Update local data
                     const partIndex = allPartsData.findIndex(p => p['Stock Code'] === stockCode);
                     if (partIndex !== -1) {
-                        allPartsData[partIndex].Current = newValue;
+                        if (updateData.current) allPartsData[partIndex].Current = updateData.current;
+                        if (updateData.min) allPartsData[partIndex].Min = updateData.min;
+                        if (updateData.bin) allPartsData[partIndex].Bin = updateData.bin;
                     }
                     
-                    // Reload current view
-                    const activeTab = document.querySelector('.tab.active').textContent.toLowerCase();
-                    if (activeTab === 'all') {
-                        displayFilteredParts();
-                    } else if (activeTab === 'critical') {
-                        loadCriticalParts();
-                    } else if (activeTab.includes('low')) {
-                        loadLowStockParts();
-                    }
-                    
-                    // Update stats
-                    loadCriticalStats();
+                    // Reload current view after a short delay
+                    setTimeout(() => {
+                        const activeTab = document.querySelector('.tab.active').textContent.toLowerCase();
+                        if (activeTab === 'all') {
+                            displayFilteredParts();
+                        } else if (activeTab === 'critical') {
+                            loadCriticalParts();
+                        } else if (activeTab.includes('low')) {
+                            loadLowStockParts();
+                        } else if (activeTab.includes('order')) {
+                            loadOrderList();
+                        }
+                        
+                        // Update stats
+                        loadAllParts();
+                    }, 500);
                 } else {
-                    alert('Failed to update: ' + data.error);
+                    alert('Failed to update: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
-                alert('Error updating stock: ' + error.message);
+                alert('Error updating part: ' + error.message);
             }
+        }
+        
+        // Legacy function for backwards compatibility
+        async function updateStock(stockCode, containerId, index) {
+            return updatePart(stockCode, containerId, index);
         }
         
         // Switch tabs
@@ -949,6 +1329,8 @@
                 loadCriticalParts();
             } else if (tabName === 'lowstock') {
                 loadLowStockParts();
+            } else if (tabName === 'order') {
+                loadOrderList();
             }
         }
         
