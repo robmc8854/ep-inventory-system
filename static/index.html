@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>EP Engineering Stores - Inventory</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+            padding-bottom: 80px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+        
+        .search-box {
+            display: flex;
+            gap: 8px;
+            margin-top: 15px;
+        }
+        
+        .search-box input {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .search-box button {
+            padding: 12px 18px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+            white-space: nowrap;
+        }
+        
+        .filters {
+            background: white;
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .filter-select {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            min-width: 120px;
+            cursor: pointer;
+        }
+        
+        .filter-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .clear-filters {
+            padding: 8px 16px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .tabs {
+            display: flex;
+            background: white;
+            border-bottom: 2px solid #e0e0e0;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px 10px;
+            text-align: center;
+            background: white;
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            min-width: 80px;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .results-info {
+            background: white;
+            padding: 12px 15px;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sort-dropdown {
+            padding: 6px 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .content {
+            padding: 0;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .part-card {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .part-card:active {
+            background: #f9f9f9;
+        }
+        
+        .part-card.expanded {
+            background: #fafafa;
+        }
+        
+        .part-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .part-main-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .stock-code {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .bin-location {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        
+        .bin-location.no-bin {
+            background: #ff9800;
+        }
+        
+        .stock-status {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: flex-end;
+        }
+        
+        .stock-level {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        
+        .stock-level.critical {
+            color: #ff4444;
+        }
+        
+        .stock-level.low {
+            color: #ff9800;
+        }
+        
+        .stock-level.ok {
+            color: #00C851;
+        }
+        
+        .stock-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+        }
+        
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge.critical {
+            background: #ff4444;
+            color: white;
+        }
+        
+        .badge.low {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .badge.ok {
+            background: #00C851;
+            color: white;
+        }
+        
+        .badge.neutral {
+            background: #e0e0e0;
+            color: #666;
+        }
+        
+        .description {
+            color: #666;
+            font-size: 13px;
+            margin: 8px 0;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .part-card.expanded .description {
+            display: block;
+            -webkit-line-clamp: unset;
+        }
+        
+        .quick-stock-info {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+        
+        .quick-info-item {
+            color: #666;
+        }
+        
+        .quick-info-item strong {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .details {
+            display: none;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            font-size: 13px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .part-card.expanded .details {
+            display: grid;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            color: #999;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+        
+        .detail-value {
+            color: #333;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        
+        .expand-icon {
+            font-size: 12px;
+            color: #999;
+            margin-left: 8px;
+            transition: transform 0.3s;
+        }
+        
+        .part-card.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+        
+        .stock-update {
+            display: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+            gap: 8px;
+        }
+        
+        .part-card.expanded .stock-update {
+            display: flex;
+        }
+        
+        .stock-update input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .stock-update input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .stock-update button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .stock-update button:active {
+            background: #5568d3;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #00C851;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏭 EP Engineering Stores</h1>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search parts, description..." />
+            <button onclick="searchParts()">Search</button>
+        </div>
+    </div>
+    
+    <div class="filters">
+        <select class="filter-select" id="binFilter" onchange="applyFilters()">
+            <option value="">All Bins</option>
+        </select>
+        <select class="filter-select" id="categoryFilter" onchange="applyFilters()">
+            <option value="">All Categories</option>
+        </select>
+        <select class="filter-select" id="stockFilter" onchange="applyFilters()">
+            <option value="">All Stock Levels</option>
+            <option value="critical">Out of Stock</option>
+            <option value="low">Below Minimum</option>
+            <option value="ok">In Stock</option>
+        </select>
+        <button class="clear-filters" onclick="clearFilters()">Clear</button>
+    </div>
+    
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('all')">ALL</button>
+        <button class="tab" onclick="switchTab('critical')">CRITICAL</button>
+        <button class="tab" onclick="switchTab('lowstock')">LOW STOCK</button>
+    </div>
+    
+    <div class="content">
+        <div id="all" class="tab-content active">
+            <div class="results-info">
+                <span id="resultsCount">Loading...</span>
+                <select class="sort-dropdown" id="sortSelect" onchange="sortParts()">
+                    <option value="code">Sort: Code</option>
+                    <option value="bin">Sort: Bin</option>
+                    <option value="stock">Sort: Stock Level</option>
+                    <option value="critical">Sort: Critical First</option>
+                </select>
+            </div>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalParts">-</div>
+                    <div class="stat-label">Total Parts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="criticalCount">-</div>
+                    <div class="stat-label">Critical</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="lowStockCount">-</div>
+                    <div class="stat-label">Low Stock</div>
+                </div>
+            </div>
+            <div id="allParts"></div>
+        </div>
+        
+        <div id="critical" class="tab-content">
+            <div class="results-info">
+                <span id="criticalResultsCount">Loading...</span>
+            </div>
+            <div id="criticalParts"></div>
+        </div>
+        
+        <div id="lowstock" class="tab-content">
+            <div class="results-info">
+                <span id="lowstockResultsCount">Loading...</span>
+            </div>
+            <div id="lowstockParts"></div>
+        </div>
+    </div>
+    
+    <script>
+        let allPartsData = [];
+        let currentFilters = {
+            bin: '',
+            category: '',
+            stockLevel: ''
+        };
+        let currentSort = 'code';
+        
+        // Load all parts on startup
+        async function loadAllParts() {
+            showLoading('allParts');
+            try {
+                const response = await fetch('/api/parts');
+                const data = await response.json();
+                allPartsData = data.parts || [];
+                
+                // Update stats
+                document.getElementById('totalParts').textContent = allPartsData.length;
+                
+                // Populate filter dropdowns
+                populateFilters();
+                
+                // Show parts
+                displayFilteredParts();
+                
+                // Load critical parts for stats
+                loadCriticalStats();
+            } catch (error) {
+                showError('allParts', 'Failed to load parts');
+            }
+        }
+        
+        // Populate filter dropdowns
+        function populateFilters() {
+            // Get unique bins
+            const bins = [...new Set(allPartsData.map(p => p.Bin).filter(b => b))].sort();
+            const binFilter = document.getElementById('binFilter');
+            bins.forEach(bin => {
+                const option = document.createElement('option');
+                option.value = bin;
+                option.textContent = bin;
+                binFilter.appendChild(option);
+            });
+            
+            // Get unique categories
+            const categories = [...new Set(allPartsData.map(p => p.Category).filter(c => c))].sort();
+            const categoryFilter = document.getElementById('categoryFilter');
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categoryFilter.appendChild(option);
+            });
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            currentFilters.bin = document.getElementById('binFilter').value;
+            currentFilters.category = document.getElementById('categoryFilter').value;
+            currentFilters.stockLevel = document.getElementById('stockFilter').value;
+            displayFilteredParts();
+        }
+        
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('binFilter').value = '';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('stockFilter').value = '';
+            document.getElementById('searchInput').value = '';
+            currentFilters = { bin: '', category: '', stockLevel: '' };
+            displayFilteredParts();
+        }
+        
+        // Display filtered and sorted parts
+        function displayFilteredParts() {
+            let filtered = allPartsData;
+            
+            // Apply bin filter
+            if (currentFilters.bin) {
+                filtered = filtered.filter(p => p.Bin === currentFilters.bin);
+            }
+            
+            // Apply category filter
+            if (currentFilters.category) {
+                filtered = filtered.filter(p => p.Category === currentFilters.category);
+            }
+            
+            // Apply stock level filter
+            if (currentFilters.stockLevel) {
+                filtered = filtered.filter(p => {
+                    const current = parseFloat(p.Current) || 0;
+                    const min = parseFloat(p.Min) || 0;
+                    const isCritical = p.Critical === 'True' || p.Critical === 'TRUE';
+                    
+                    if (currentFilters.stockLevel === 'critical') {
+                        return current === 0;
+                    } else if (currentFilters.stockLevel === 'low') {
+                        return current > 0 && current <= min;
+                    } else if (currentFilters.stockLevel === 'ok') {
+                        return current > min;
+                    }
+                    return true;
+                });
+            }
+            
+            // Sort
+            filtered = sortPartsList(filtered, currentSort);
+            
+            // Display
+            document.getElementById('resultsCount').textContent = `${filtered.length} parts`;
+            displayParts(filtered, 'allParts');
+        }
+        
+        // Sort parts
+        function sortParts() {
+            currentSort = document.getElementById('sortSelect').value;
+            displayFilteredParts();
+        }
+        
+        function sortPartsList(parts, sortBy) {
+            const sorted = [...parts];
+            switch(sortBy) {
+                case 'code':
+                    sorted.sort((a, b) => (a['Stock Code'] || '').localeCompare(b['Stock Code'] || ''));
+                    break;
+                case 'bin':
+                    sorted.sort((a, b) => (a.Bin || 'ZZZ').localeCompare(b.Bin || 'ZZZ'));
+                    break;
+                case 'stock':
+                    sorted.sort((a, b) => {
+                        const aStock = parseFloat(a.Current) || 0;
+                        const bStock = parseFloat(b.Current) || 0;
+                        return aStock - bStock;
+                    });
+                    break;
+                case 'critical':
+                    sorted.sort((a, b) => {
+                        const aCrit = a.Critical === 'True' || a.Critical === 'TRUE';
+                        const bCrit = b.Critical === 'True' || b.Critical === 'TRUE';
+                        if (aCrit && !bCrit) return -1;
+                        if (!aCrit && bCrit) return 1;
+                        const aStock = parseFloat(a.Current) || 0;
+                        const bStock = parseFloat(b.Current) || 0;
+                        return aStock - bStock;
+                    });
+                    break;
+            }
+            return sorted;
+        }
+        
+        // Load critical parts stats
+        async function loadCriticalStats() {
+            try {
+                const response = await fetch('/api/parts/critical');
+                const data = await response.json();
+                document.getElementById('criticalCount').textContent = data.parts.filter(p => p.Critical === 'True').length;
+                document.getElementById('lowStockCount').textContent = data.parts.length;
+            } catch (error) {
+                console.error('Failed to load critical stats');
+            }
+        }
+        
+        // Load critical parts tab
+        async function loadCriticalParts() {
+            showLoading('criticalParts');
+            try {
+                const response = await fetch('/api/parts/critical');
+                const data = await response.json();
+                const criticalOnly = data.parts.filter(p => p.Critical === 'True' || p.Critical === 'TRUE');
+                document.getElementById('criticalResultsCount').textContent = `${criticalOnly.length} critical parts`;
+                displayParts(criticalOnly, 'criticalParts');
+            } catch (error) {
+                showError('criticalParts', 'Failed to load critical parts');
+            }
+        }
+        
+        // Load low stock parts tab
+        async function loadLowStockParts() {
+            showLoading('lowstockParts');
+            try {
+                const response = await fetch('/api/parts/critical');
+                const data = await response.json();
+                document.getElementById('lowstockResultsCount').textContent = `${data.parts.length} parts below minimum`;
+                displayParts(data.parts, 'lowstockParts');
+            } catch (error) {
+                showError('lowstockParts', 'Failed to load low stock parts');
+            }
+        }
+        
+        // Search parts
+        async function searchParts() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!query) {
+                displayFilteredParts();
+                return;
+            }
+            
+            const results = allPartsData.filter(part => {
+                const stockCode = (part['Stock Code'] || '').toLowerCase();
+                const description = (part.Description || '').toLowerCase();
+                const category = (part.Category || '').toLowerCase();
+                const bin = (part.Bin || '').toLowerCase();
+                
+                return stockCode.includes(query) || 
+                       description.includes(query) || 
+                       category.includes(query) ||
+                       bin.includes(query);
+            });
+            
+            document.getElementById('resultsCount').textContent = `${results.length} results for "${query}"`;
+            displayParts(results, 'allParts');
+        }
+        
+        // Display parts in container
+        function displayParts(parts, containerId) {
+            const container = document.getElementById(containerId);
+            
+            if (parts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📦</div>
+                        <p>No parts found</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = parts.map((part, index) => createPartCard(part, index, containerId)).join('');
+        }
+        
+        // Toggle part card expansion
+        function toggleCard(containerId, index) {
+            const card = document.getElementById(`card-${containerId}-${index}`);
+            card.classList.toggle('expanded');
+        }
+        
+        // Create part card HTML - new expandable design
+        function createPartCard(part, index, containerId) {
+            const isCritical = part.Critical === 'True' || part.Critical === 'TRUE';
+            const current = parseFloat(part.Current) || 0;
+            const min = parseFloat(part.Min) || 0;
+            const isOutOfStock = current === 0;
+            const isLowStock = current > 0 && current <= min;
+            
+            let stockClass = 'ok';
+            let badgeClass = 'neutral';
+            let badgeText = 'IN STOCK';
+            
+            if (isCritical && isOutOfStock) {
+                stockClass = 'critical';
+                badgeClass = 'critical';
+                badgeText = 'CRITICAL OUT';
+            } else if (isCritical && isLowStock) {
+                stockClass = 'critical';
+                badgeClass = 'critical';
+                badgeText = 'CRITICAL LOW';
+            } else if (isCritical) {
+                badgeClass = 'ok';
+                badgeText = 'CRITICAL';
+            } else if (isOutOfStock) {
+                stockClass = 'critical';
+                badgeClass = 'critical';
+                badgeText = 'OUT OF STOCK';
+            } else if (isLowStock) {
+                stockClass = 'low';
+                badgeClass = 'low';
+                badgeText = 'LOW STOCK';
+            }
+            
+            const binLocation = part.Bin ? 
+                `<div class="bin-location">📍 ${part.Bin}</div>` : 
+                `<div class="bin-location no-bin">⚠️ NO BIN</div>`;
+            
+            return `
+                <div class="part-card" id="card-${containerId}-${index}" onclick="toggleCard('${containerId}', ${index})">
+                    <div class="part-header">
+                        <div class="part-main-info">
+                            <div class="stock-code">${part['Stock Code'] || 'N/A'}</div>
+                            ${binLocation}
+                        </div>
+                        <div class="stock-status">
+                            <div class="stock-level ${stockClass}">${current}</div>
+                            <div class="stock-label">Current</div>
+                            <div class="badge ${badgeClass}">${badgeText}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="description">${part.Description || 'No description'}</div>
+                    
+                    <div class="quick-stock-info">
+                        <div class="quick-info-item">Min: <strong>${min}</strong></div>
+                        <div class="quick-info-item">Category: <strong>${part.Category || 'N/A'}</strong></div>
+                    </div>
+                    
+                    <div class="details">
+                        <div class="detail-item">
+                            <div class="detail-label">Manufacturer PN</div>
+                            <div class="detail-value">${part['Manufacturer Part Number'] || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Supplier</div>
+                            <div class="detail-value">${part.Supplier || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Price</div>
+                            <div class="detail-value">${part.Price ? '£' + part.Price : 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Purchase Unit</div>
+                            <div class="detail-value">${part['Purchase Unit'] || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Issue Unit</div>
+                            <div class="detail-value">${part['Issue Unit'] || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Store</div>
+                            <div class="detail-value">${part.Store || 'N/A'}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stock-update" onclick="event.stopPropagation()">
+                        <input type="number" id="stock_${containerId}_${index}" placeholder="New stock level" min="0" />
+                        <button onclick="updateStock('${part['Stock Code']}', '${containerId}', ${index})">Update</button>
+                    </div>
+                    
+                    <span class="expand-icon">▼</span>
+                </div>
+            `;
+        }
+        
+        // Update stock level
+        async function updateStock(stockCode, containerId, index) {
+            const input = document.getElementById(`stock_${containerId}_${index}`);
+            const newValue = input.value;
+            
+            if (!newValue || newValue < 0) {
+                alert('Please enter a valid stock level');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/parts/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        stock_code: stockCode,
+                        current: newValue
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showSuccess(`✓ Updated ${stockCode} to ${newValue}`);
+                    input.value = '';
+                    
+                    // Update local data
+                    const partIndex = allPartsData.findIndex(p => p['Stock Code'] === stockCode);
+                    if (partIndex !== -1) {
+                        allPartsData[partIndex].Current = newValue;
+                    }
+                    
+                    // Reload current view
+                    const activeTab = document.querySelector('.tab.active').textContent.toLowerCase();
+                    if (activeTab === 'all') {
+                        displayFilteredParts();
+                    } else if (activeTab === 'critical') {
+                        loadCriticalParts();
+                    } else if (activeTab.includes('low')) {
+                        loadLowStockParts();
+                    }
+                    
+                    // Update stats
+                    loadCriticalStats();
+                } else {
+                    alert('Failed to update: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error updating stock: ' + error.message);
+            }
+        }
+        
+        // Switch tabs
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            
+            // Load data if needed
+            if (tabName === 'all') {
+                if (allPartsData.length === 0) {
+                    loadAllParts();
+                } else {
+                    displayFilteredParts();
+                }
+            } else if (tabName === 'critical') {
+                loadCriticalParts();
+            } else if (tabName === 'lowstock') {
+                loadLowStockParts();
+            }
+        }
+        
+        // Show loading
+        function showLoading(containerId) {
+            document.getElementById(containerId).innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 20px;">Loading parts...</p>
+                </div>
+            `;
+        }
+        
+        // Show error
+        function showError(containerId, message) {
+            document.getElementById(containerId).innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚠️</div>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+        
+        // Show success message
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.textContent = message;
+            document.body.appendChild(successDiv);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+        
+        // Search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchParts();
+            }
+        });
+        
+        // Load initial data
+        loadAllParts();
+    </script>
+</body>
+</html>
