@@ -205,7 +205,7 @@ def update_part():
 
 @app.route('/api/parts/update-full', methods=['POST'])
 def update_part_full():
-    """Update multiple fields of a part (Current, Min, Max, Bin)"""
+    """Update multiple fields of a part (Current, Min, Max, Bin, Bin Checked)"""
     try:
         data = request.json
         print(f"[UPDATE-FULL] Received data: {data}")
@@ -228,8 +228,9 @@ def update_part_full():
         min_col = headers.index('Min') if 'Min' in headers else 10
         max_col = headers.index('Max') if 'Max' in headers else 11
         bin_col = headers.index('Bin') if 'Bin' in headers else 13
+        bin_checked_col = headers.index('Bin Checked') if 'Bin Checked' in headers else 14
         
-        print(f"[UPDATE-FULL] Column indices - Stock Code: {stock_code_col}, Current: {current_col}, Min: {min_col}, Max: {max_col}, Bin: {bin_col}")
+        print(f"[UPDATE-FULL] Column indices - Stock Code: {stock_code_col}, Current: {current_col}, Min: {min_col}, Max: {max_col}, Bin: {bin_col}, Bin Checked: {bin_checked_col}")
         
         # Find the row
         row_idx = None
@@ -286,6 +287,17 @@ def update_part_full():
             })
             updated_fields.append('bin')
             print(f"[UPDATE-FULL] Will update Bin at {cell_range} to {data['bin']}")
+        
+        # Update Bin Checked (accepts boolean or string)
+        if 'bin_checked' in data:
+            cell_range = f'{chr(65 + bin_checked_col)}{row_idx}'
+            bin_checked_value = 'TRUE' if data['bin_checked'] in [True, 'true', 'TRUE', '1', 1] else ''
+            updates.append({
+                'range': cell_range,
+                'values': [[bin_checked_value]]
+            })
+            updated_fields.append('bin_checked')
+            print(f"[UPDATE-FULL] Will update Bin Checked at {cell_range} to {bin_checked_value}")
         
         # Perform batch update
         if updates:
