@@ -1287,25 +1287,25 @@
                         <div style="display: grid; grid-template-columns: 80px 1fr 80px 80px; gap: 8px; margin-bottom: 12px;">
                             <!-- Current Stock - 3 digits wide -->
                             <div>
-                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">CURRENT<br>STOCK</label>
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px; height: 20px;">CURRENT</label>
                                 <input type="number" id="current_${containerId}_${index}" value="${current}" min="0" max="999" step="1" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 24px; font-weight: 700; text-align: center;" />
                             </div>
                             
                             <!-- Bin Location - 8 chars wide -->
                             <div>
-                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">BIN<br>LOCATION</label>
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px; height: 20px;">BIN LOC</label>
                                 <input type="text" id="bin_${containerId}_${index}" value="${part.Bin || ''}" placeholder="M8C2-5" maxlength="8" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 20px; font-weight: 700; text-align: center;" />
                             </div>
                             
                             <!-- Min - 3 digits wide -->
                             <div>
-                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">MIN</label>
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px; height: 20px;">MIN</label>
                                 <input type="text" id="min_${containerId}_${index}" value="${minStr || ''}" placeholder="10" maxlength="3" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 24px; font-weight: 700; text-align: center;" />
                             </div>
                             
                             <!-- Max - 3 digits wide -->
                             <div>
-                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">MAX</label>
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px; height: 20px;">MAX</label>
                                 <input type="number" id="max_${containerId}_${index}" value="${max || maxDisplay || ''}" placeholder="${maxDisplay || '20'}" min="0" max="999" step="1" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 24px; font-weight: 700; text-align: center;" />
                             </div>
                         </div>
