@@ -205,7 +205,7 @@ def update_part():
 
 @app.route('/api/parts/update-full', methods=['POST'])
 def update_part_full():
-    """Update multiple fields of a part (Current, Min, Max, Bin, Bin Checked)"""
+    """Update multiple fields of a part (Current, Min, Max, Bin, Bin Checked, Pirana Status)"""
     try:
         data = request.json
         print(f"[UPDATE-FULL] Received data: {data}")
@@ -229,8 +229,10 @@ def update_part_full():
         max_col = headers.index('Max') if 'Max' in headers else 11
         bin_col = headers.index('Bin') if 'Bin' in headers else 13
         bin_checked_col = headers.index('Bin Checked') if 'Bin Checked' in headers else 14
+        ready_pirana_col = headers.index('Ready for Pirana') if 'Ready for Pirana' in headers else 15
+        added_pirana_col = headers.index('Added to Pirana') if 'Added to Pirana' in headers else 16
         
-        print(f"[UPDATE-FULL] Column indices - Stock Code: {stock_code_col}, Current: {current_col}, Min: {min_col}, Max: {max_col}, Bin: {bin_col}, Bin Checked: {bin_checked_col}")
+        print(f"[UPDATE-FULL] Column indices - Stock Code: {stock_code_col}, Current: {current_col}, Min: {min_col}, Max: {max_col}, Bin: {bin_col}, Bin Checked: {bin_checked_col}, Ready Pirana: {ready_pirana_col}, Added Pirana: {added_pirana_col}")
         
         # Find the row
         row_idx = None
@@ -298,6 +300,28 @@ def update_part_full():
             })
             updated_fields.append('bin_checked')
             print(f"[UPDATE-FULL] Will update Bin Checked at {cell_range} to {bin_checked_value}")
+        
+        # Update Ready for Pirana (accepts boolean or string)
+        if 'ready_pirana' in data:
+            cell_range = f'{chr(65 + ready_pirana_col)}{row_idx}'
+            ready_value = 'TRUE' if data['ready_pirana'] in [True, 'true', 'TRUE', '1', 1] else ''
+            updates.append({
+                'range': cell_range,
+                'values': [[ready_value]]
+            })
+            updated_fields.append('ready_pirana')
+            print(f"[UPDATE-FULL] Will update Ready for Pirana at {cell_range} to {ready_value}")
+        
+        # Update Added to Pirana (accepts boolean or string)
+        if 'added_pirana' in data:
+            cell_range = f'{chr(65 + added_pirana_col)}{row_idx}'
+            added_value = 'TRUE' if data['added_pirana'] in [True, 'true', 'TRUE', '1', 1] else ''
+            updates.append({
+                'range': cell_range,
+                'values': [[added_value]]
+            })
+            updated_fields.append('added_pirana')
+            print(f"[UPDATE-FULL] Will update Added to Pirana at {cell_range} to {added_value}")
         
         # Perform batch update
         if updates:
