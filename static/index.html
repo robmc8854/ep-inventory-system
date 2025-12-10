@@ -1283,23 +1283,20 @@
                     </div>
                     
                     <div class="stock-update" onclick="event.stopPropagation()">
-                        <!-- Row 1: Current Stock and Bin Location -->
-                        <div style="display: grid; grid-template-columns: 80px 1fr; gap: 8px; margin-bottom: 8px;">
+                        <!-- Row 1: All 4 Input Fields in One Row -->
+                        <div style="display: grid; grid-template-columns: 80px 1fr 80px 80px; gap: 8px; margin-bottom: 12px;">
                             <!-- Current Stock - 3 digits wide -->
                             <div>
-                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">CURRENT</label>
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">CURRENT<br>STOCK</label>
                                 <input type="number" id="current_${containerId}_${index}" value="${current}" min="0" max="999" step="1" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 24px; font-weight: 700; text-align: center;" />
                             </div>
                             
                             <!-- Bin Location - 8 chars wide -->
                             <div>
-                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">BIN LOCATION</label>
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">BIN<br>LOCATION</label>
                                 <input type="text" id="bin_${containerId}_${index}" value="${part.Bin || ''}" placeholder="M8C2-5" maxlength="8" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 20px; font-weight: 700; text-align: center;" />
                             </div>
-                        </div>
-                        
-                        <!-- Row 2: Min and Max -->
-                        <div style="display: grid; grid-template-columns: 80px 80px; gap: 8px; margin-bottom: 12px;">
+                            
                             <!-- Min - 3 digits wide -->
                             <div>
                                 <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">MIN</label>
@@ -1313,7 +1310,7 @@
                             </div>
                         </div>
                         
-                        <!-- Row 3: Checkboxes - Moved Down -->
+                        <!-- Row 2: Checkboxes - BELOW the inputs -->
                         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px;">
                             <!-- Bin Checked -->
                             <div style="padding: 8px 4px; background: #f5f5f5; border-radius: 6px; text-align: center;">
@@ -1334,7 +1331,7 @@
                             </div>
                         </div>
                         
-                        <!-- Row 4: Save Button - Below Checkboxes -->
+                        <!-- Row 3: Save Button - BELOW the checkboxes -->
                         <button onclick="updatePart('${part['Stock Code']}', '${containerId}', ${index})" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);">
                             💾 Save All Changes
                         </button>
