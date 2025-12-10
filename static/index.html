@@ -1124,8 +1124,9 @@
                 badgeText = 'LOW STOCK';
             }
             
+            const binChecked = part['Bin Checked'] === 'TRUE';
             const binLocation = part.Bin ? 
-                `<div class="bin-location">📍 ${part.Bin}</div>` : 
+                `<div class="bin-location">${binChecked ? '✓' : '📍'} ${part.Bin}${binChecked ? ' <span style="color: #4caf50; font-size: 11px;">✓</span>' : ''}</div>` : 
                 `<div class="bin-location no-bin">⚠️ NO BIN</div>`;
             
             // Stock bar percentage (only if numeric Min exists)
@@ -1220,27 +1221,40 @@
                     </div>
                     
                     <div class="stock-update" onclick="event.stopPropagation()">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                        <!-- Row 1: Current & Bin -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
                             <div>
-                                <label style="font-size: 11px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px;">Current Stock</label>
-                                <input type="number" id="current_${containerId}_${index}" value="${current}" min="0" step="1" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
+                                <label style="font-size: 10px; color: #999; text-transform: uppercase; display: block; margin-bottom: 3px;">Current</label>
+                                <input type="number" id="current_${containerId}_${index}" value="${current}" min="0" step="1" style="width: 100%; padding: 10px 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 16px;" />
                             </div>
                             <div>
-                                <label style="font-size: 11px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px;">Bin Location</label>
-                                <input type="text" id="bin_${containerId}_${index}" value="${part.Bin || ''}" placeholder="e.g. A12" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
-                            </div>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-                            <div>
-                                <label style="font-size: 11px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px;">Min Stock</label>
-                                <input type="text" id="min_${containerId}_${index}" value="${minStr || ''}" placeholder="e.g. 10 or TBC" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
-                            </div>
-                            <div>
-                                <label style="font-size: 11px; color: #999; text-transform: uppercase; display: block; margin-bottom: 4px;">Max Stock</label>
-                                <input type="number" id="max_${containerId}_${index}" value="${max || maxDisplay || ''}" placeholder="${maxDisplay ? 'Suggested: ' + maxDisplay : 'Enter max'}" min="0" step="1" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 14px;" />
+                                <label style="font-size: 10px; color: #999; text-transform: uppercase; display: block; margin-bottom: 3px;">Bin</label>
+                                <input type="text" id="bin_${containerId}_${index}" value="${part.Bin || ''}" placeholder="A12" style="width: 100%; padding: 10px 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 16px;" />
                             </div>
                         </div>
-                        <button onclick="updatePart('${part['Stock Code']}', '${containerId}', ${index})" style="width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer;">
+                        
+                        <!-- Row 2: Min & Max -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                            <div>
+                                <label style="font-size: 10px; color: #999; text-transform: uppercase; display: block; margin-bottom: 3px;">Min</label>
+                                <input type="text" id="min_${containerId}_${index}" value="${minStr || ''}" placeholder="10 or TBC" style="width: 100%; padding: 10px 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 16px;" />
+                            </div>
+                            <div>
+                                <label style="font-size: 10px; color: #999; text-transform: uppercase; display: block; margin-bottom: 3px;">Max</label>
+                                <input type="number" id="max_${containerId}_${index}" value="${max || maxDisplay || ''}" placeholder="${maxDisplay ? maxDisplay : ''}" min="0" step="1" style="width: 100%; padding: 10px 8px; border: 2px solid #e0e0e0; border-radius: 6px; font-size: 16px;" />
+                            </div>
+                        </div>
+                        
+                        <!-- Row 3: Bin Checked -->
+                        <div style="margin-bottom: 12px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                            <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                                <input type="checkbox" id="bin_checked_${containerId}_${index}" ${part['Bin Checked'] === 'TRUE' ? 'checked' : ''} style="width: 20px; height: 20px; margin-right: 10px; cursor: pointer; accent-color: #667eea;" />
+                                <span style="font-size: 14px; font-weight: 600; color: #333;">✓ Bin Location Verified</span>
+                            </label>
+                        </div>
+                        
+                        <!-- Save Button -->
+                        <button onclick="updatePart('${part['Stock Code']}', '${containerId}', ${index})" style="width: 100%; padding: 14px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);">
                             💾 Save All Changes
                         </button>
                     </div>
@@ -1258,12 +1272,14 @@
             const minInput = document.getElementById(`min_${containerId}_${index}`);
             const maxInput = document.getElementById(`max_${containerId}_${index}`);
             const binInput = document.getElementById(`bin_${containerId}_${index}`);
+            const binCheckedInput = document.getElementById(`bin_checked_${containerId}_${index}`);
             
             console.log('Inputs found:', {
                 current: currentInput?.value,
                 min: minInput?.value,
                 max: maxInput?.value,
-                bin: binInput?.value
+                bin: binInput?.value,
+                bin_checked: binCheckedInput?.checked
             });
             
             const updateData = {
@@ -1275,6 +1291,7 @@
             const min = minInput?.value?.trim();
             const max = maxInput?.value?.trim();
             const bin = binInput?.value?.trim();
+            const binChecked = binCheckedInput?.checked;
             
             if (current !== '' && current !== undefined) {
                 updateData.current = current;
@@ -1288,12 +1305,14 @@
             if (bin !== '' && bin !== undefined) {
                 updateData.bin = bin;
             }
+            // Always send bin_checked status (true/false)
+            updateData.bin_checked = binChecked;
             
             console.log('Update data:', updateData);
             
-            // Must have at least one field to update
-            if (Object.keys(updateData).length === 1) {
-                alert('No changes to save - all fields are empty');
+            // Must have at least one field to update (excluding stock_code and bin_checked which always send)
+            if (Object.keys(updateData).length === 2) {  // Just stock_code + bin_checked
+                alert('No changes to save - please update at least one field');
                 return;
             }
             
@@ -1328,6 +1347,7 @@
                         if (updateData.min) allPartsData[partIndex].Min = updateData.min;
                         if (updateData.max) allPartsData[partIndex].Max = updateData.max;
                         if (updateData.bin) allPartsData[partIndex].Bin = updateData.bin;
+                        allPartsData[partIndex]['Bin Checked'] = binChecked ? 'TRUE' : '';
                     }
                     
                     // Reload current view after a short delay
