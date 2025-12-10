@@ -10,7 +10,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
             background: #f5f5f5;
@@ -432,11 +432,10 @@
             margin-top: 15px;
             padding-top: 15px;
             border-top: 1px solid #e0e0e0;
-            gap: 8px;
         }
         
         .part-card.expanded .stock-update {
-            display: flex;
+            display: block;
         }
         
         .stock-update input {
@@ -559,7 +558,7 @@
             <button onclick="searchParts()">Search</button>
         </div>
     </div>
-    
+
     <div class="filters">
         <select class="filter-select" id="binFilter" onchange="applyFilters()">
             <option value="">All Bins</option>
@@ -590,14 +589,14 @@
         </select>
         <button class="clear-filters" onclick="clearFilters()">Clear</button>
     </div>
-    
+
     <div class="tabs">
         <button class="tab active" onclick="switchTab('all')">ALL</button>
         <button class="tab" onclick="switchTab('critical')">CRITICAL</button>
         <button class="tab" onclick="switchTab('lowstock')">LOW STOCK</button>
         <button class="tab order-tab" onclick="switchTab('order')">📋 ORDER</button>
     </div>
-    
+
     <div class="content">
         <div id="all" class="tab-content active">
             <div class="results-info">
@@ -654,7 +653,7 @@
             <div id="orderParts"></div>
         </div>
     </div>
-    
+
     <div class="order-summary" id="orderSummary">
         <div>
             <div class="order-summary-text">Parts to Order</div>
@@ -664,7 +663,7 @@
             View Order List
         </button>
     </div>
-    
+
     <script>
         let allPartsData = [];
         let currentFilters = {
@@ -1284,59 +1283,59 @@
                     </div>
                     
                     <div class="stock-update" onclick="event.stopPropagation()">
-                        <!-- Row 1: Current Stock & Bin Location -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                        <!-- Row 1: Current Stock and Bin Location -->
+                        <div style="display: grid; grid-template-columns: 80px 1fr; gap: 8px; margin-bottom: 8px;">
+                            <!-- Current Stock - 3 digits wide -->
                             <div>
-                                <label style="font-size: 11px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">CURRENT<br>STOCK</label>
-                                <input type="number" id="current_${containerId}_${index}" value="${current}" min="0" step="1" maxlength="3" style="width: 100%; height: 70px; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 28px; font-weight: 700; text-align: center; box-sizing: border-box;" />
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">CURRENT</label>
+                                <input type="number" id="current_${containerId}_${index}" value="${current}" min="0" max="999" step="1" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 24px; font-weight: 700; text-align: center;" />
                             </div>
+                            
+                            <!-- Bin Location - 8 chars wide -->
                             <div>
-                                <label style="font-size: 11px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">BIN<br>LOCATION</label>
-                                <input type="text" id="bin_${containerId}_${index}" value="${part.Bin || ''}" placeholder="M3A1" maxlength="8" style="width: 100%; height: 70px; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 28px; font-weight: 700; text-align: center; box-sizing: border-box;" />
-                            </div>
-                        </div>
-                        
-                        <!-- Row 2: Min & Max -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
-                            <div>
-                                <label style="font-size: 11px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">MIN</label>
-                                <input type="text" id="min_${containerId}_${index}" value="${minStr || ''}" placeholder="10" maxlength="3" style="width: 100%; height: 70px; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 28px; font-weight: 700; text-align: center; box-sizing: border-box;" />
-                            </div>
-                            <div>
-                                <label style="font-size: 11px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 6px; letter-spacing: 0.5px;">MAX</label>
-                                <input type="number" id="max_${containerId}_${index}" value="${max || maxDisplay || ''}" placeholder="${maxDisplay || '20'}" min="0" step="1" maxlength="3" style="width: 100%; height: 70px; padding: 10px; border: 2px solid #ddd; border-radius: 8px; font-size: 28px; font-weight: 700; text-align: center; box-sizing: border-box;" />
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">BIN LOCATION</label>
+                                <input type="text" id="bin_${containerId}_${index}" value="${part.Bin || ''}" placeholder="M8C2-5" maxlength="8" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 20px; font-weight: 700; text-align: center;" />
                             </div>
                         </div>
                         
-                        <!-- Checkboxes - Now Below the Input Grid -->
-                        <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <!-- Row 2: Min and Max -->
+                        <div style="display: grid; grid-template-columns: 80px 80px; gap: 8px; margin-bottom: 12px;">
+                            <!-- Min - 3 digits wide -->
+                            <div>
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">MIN</label>
+                                <input type="text" id="min_${containerId}_${index}" value="${minStr || ''}" placeholder="10" maxlength="3" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 24px; font-weight: 700; text-align: center;" />
+                            </div>
+                            
+                            <!-- Max - 3 digits wide -->
+                            <div>
+                                <label style="font-size: 10px; color: #666; font-weight: 700; text-transform: uppercase; display: block; margin-bottom: 4px;">MAX</label>
+                                <input type="number" id="max_${containerId}_${index}" value="${max || maxDisplay || ''}" placeholder="${maxDisplay || '20'}" min="0" max="999" step="1" style="width: 100%; height: 50px; padding: 8px; border: 2px solid #ddd; border-radius: 8px; font-size: 24px; font-weight: 700; text-align: center;" />
+                            </div>
+                        </div>
+                        
+                        <!-- Row 3: Checkboxes - Moved Down -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px;">
                             <!-- Bin Checked -->
-                            <div style="flex: 1; padding: 10px; background: #f5f5f5; border-radius: 8px;">
-                                <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; user-select: none; text-align: center;">
-                                    <input type="checkbox" id="bin_checked_${containerId}_${index}" ${part['Bin Checked'] === 'TRUE' ? 'checked' : ''} style="width: 24px; height: 24px; margin-bottom: 6px; cursor: pointer; accent-color: #4caf50;" />
-                                    <span style="font-size: 11px; font-weight: 600; color: #333; line-height: 1.2;">✓ Bin<br>Verified</span>
-                                </label>
+                            <div style="padding: 8px 4px; background: #f5f5f5; border-radius: 6px; text-align: center;">
+                                <input type="checkbox" id="bin_checked_${containerId}_${index}" ${part['Bin Checked'] === 'TRUE' ? 'checked' : ''} style="width: 20px; height: 20px; margin-bottom: 3px; cursor: pointer; accent-color: #4caf50;" />
+                                <div style="font-size: 9px; font-weight: 600; color: #333; line-height: 1.1;">✓ Bin<br>Verified</div>
                             </div>
                             
                             <!-- Ready for Pirana -->
-                            <div style="flex: 1; padding: 10px; background: #fff3e0; border-radius: 8px; border: 2px solid #ff9800;">
-                                <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; user-select: none; text-align: center;">
-                                    <input type="checkbox" id="ready_pirana_${containerId}_${index}" ${part['Ready for Pirana'] === 'TRUE' ? 'checked' : ''} style="width: 24px; height: 24px; margin-bottom: 6px; cursor: pointer; accent-color: #ff9800;" />
-                                    <span style="font-size: 11px; font-weight: 600; color: #e65100; line-height: 1.2;">📋 Ready<br>Pirana</span>
-                                </label>
+                            <div style="padding: 8px 4px; background: #fff3e0; border-radius: 6px; border: 2px solid #ff9800; text-align: center;">
+                                <input type="checkbox" id="ready_pirana_${containerId}_${index}" ${part['Ready for Pirana'] === 'TRUE' ? 'checked' : ''} style="width: 20px; height: 20px; margin-bottom: 3px; cursor: pointer; accent-color: #ff9800;" />
+                                <div style="font-size: 9px; font-weight: 600; color: #e65100; line-height: 1.1;">📋 Ready<br>Pirana</div>
                             </div>
                             
                             <!-- Added to Pirana -->
-                            <div style="flex: 1; padding: 10px; background: #e8f5e9; border-radius: 8px; border: 2px solid #4caf50;">
-                                <label style="display: flex; flex-direction: column; align-items: center; cursor: pointer; user-select: none; text-align: center;">
-                                    <input type="checkbox" id="added_pirana_${containerId}_${index}" ${part['Added to Pirana'] === 'TRUE' ? 'checked' : ''} style="width: 24px; height: 24px; margin-bottom: 6px; cursor: pointer; accent-color: #4caf50;" />
-                                    <span style="font-size: 11px; font-weight: 600; color: #2e7d32; line-height: 1.2;">✅ Added<br>Pirana</span>
-                                </label>
+                            <div style="padding: 8px 4px; background: #e8f5e9; border-radius: 6px; border: 2px solid #4caf50; text-align: center;">
+                                <input type="checkbox" id="added_pirana_${containerId}_${index}" ${part['Added to Pirana'] === 'TRUE' ? 'checked' : ''} style="width: 20px; height: 20px; margin-bottom: 3px; cursor: pointer; accent-color: #4caf50;" />
+                                <div style="font-size: 9px; font-weight: 600; color: #2e7d32; line-height: 1.1;">✅ Added<br>Pirana</div>
                             </div>
                         </div>
                         
-                        <!-- Save Button - Below Checkboxes -->
-                        <button onclick="updatePart('${part['Stock Code']}', '${containerId}', ${index})" style="width: 100%; padding: 18px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 17px; cursor: pointer; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);">
+                        <!-- Row 4: Save Button - Below Checkboxes -->
+                        <button onclick="updatePart('${part['Stock Code']}', '${containerId}', ${index})" style="width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);">
                             💾 Save All Changes
                         </button>
                     </div>
