@@ -573,6 +573,1522 @@
             <option value="low">Below Minimum</option>
             <option value="ok">In Stock</option>
         </select>
+        <select class="filter-select" id="binCheckedFilter" onchange="applyFilters()">
+            <option value="">Bin Check Status</option>
+            <option value="checked">✓ Bin Verified</option>
+            <option value="unchecked">⚠️ Not Verified</option>
+        </select>
+        <select class="filter-select" id="readyPiranaFilter" onchange="applyFilters()">
+            <option value="">Ready for Pirana</option>
+            <option value="ready">📋 Ready to Add</option>
+            <option value="not_ready">Not Ready</option>
+        </select>
+        <select class="filter-select" id="addedPiranaFilter" onchange="applyFilters()">
+            <option value="">Pirana Status</option>
+            <option value="added">✅ In Pirana</option>
+            <option value="not_added">⭕ Not in Pirana</option>
+        </select>
+        <button class="clear-filters" onclick="clearFilters()">Clear</button>
+    </div>
+    
+    <div class="tabs">
+        <button class="tab active" onclick="switchTab('all')">ALL</button>
+        <button class="tab" onclick="switchTab('critical')">CRITICAL</button>
+        <button class="tab" onclick="switchTab('lowstock')">LOW STOCK</button>
+        <button class="tab order-tab" onclick="switchTab('order')">📋 ORDER</button>
+    </div>
+    
+    <div class="content">
+        <div id="all" class="tab-content active">
+            <div class="results-info">
+                <span id="resultsCount">Loading...</span>
+                <select class="sort-dropdown" id="sortSelect" onchange="sortParts()">
+                    <option value="code">Sort: Code</option>
+                    <option value="bin">Sort: Bin</option>
+                    <option value="stock">Sort: Stock Level</option>
+                    <option value="critical">Sort: Critical First</option>
+                    <option value="order">Sort: Order Qty</option>
+                </select>
+            </div>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalParts">-</div>
+                    <div class="stat-label">Total Parts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="criticalCount">-</div>
+                    <div class="stat-label">Critical</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="lowStockCount">-</div>
+                    <div class="stat-label">Need Order</div>
+                </div>
+            </div>
+            <div id="allParts"></div>
+        </div>
+        
+        <div id="critical" class="tab-content">
+            <div class="results-info">
+                <span id="criticalResultsCount">Loading...</span>
+            </div>
+            <div id="criticalParts"></div>
+        </div>
+        
+        <div id="lowstock" class="tab-content">
+            <div class="results-info">
+                <span id="lowstockResultsCount">Loading...</span>
+            </div>
+            <div id="lowstockParts"></div>
+        </div>
+        
+        <div id="order" class="tab-content">
+            <div class="results-info">
+                <span id="orderResultsCount">Loading...</span>
+                <select class="sort-dropdown" id="orderSortSelect" onchange="sortOrderList()">
+                    <option value="urgent">Sort: Most Urgent</option>
+                    <option value="quantity">Sort: Highest Qty</option>
+                    <option value="bin">Sort: Bin Location</option>
+                    <option value="category">Sort: Category</option>
+                </select>
+            </div>
+            <div id="orderParts"></div>
+        </div>
+    </div>
+    
+    <div class="order-summary" id="orderSummary">
+        <div>
+            <div class="order-summary-text">Parts to Order</div>
+            <div class="order-summary-count" id="orderCount">0</div>
+        </div>
+        <button style="background: white; color: #ff9800; padding: 10px 20px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;" onclick="switchTab('order')">
+            View Order List
+        </button>
+    </div>
+    
+    <script>
+        let allPartsData = [];
+        let currentFilters = {
+            bin: '',
+            category: '',
+            stockLevel: '',
+            binChecked: '',
+            readyPirana: '',
+            addedPirana: ''
+        };
+        let currentSort = 'code';
+        
+        // Load all parts on startup
+        async function loadAllParts() {
+            showLoading('allParts');
+            try {
+                const response = await fetch('/api/parts');
+                const data = await response.json();
+                allPartsData = data.parts || [];
+                
+                // Update stats
+                document.getElementById('totalParts').textContent = allPartsData.length;
+                
+                // Calculate parts needing order (only those with numeric Min values)
+                const partsToOrder = allPartsData.filter(part => needsOrdering(part));
+                
+                document.getElementById('lowStockCount').textContent = partsToOrder.length;
+                document.getElementById('orderCount').textContent = partsToOrder.length;
+                
+                if (partsToOrder.length > 0) {
+                    document.getElementById('orderSummary').classList.add('show');
+                }
+                
+                // Populate filter dropdowns
+                populateFilters();
+                
+                // Show parts
+                displayFilteredParts();
+                
+                // Load critical parts for stats
+                loadCriticalStats();
+            } catch (error) {
+                showError('allParts', 'Failed to load parts');
+            }
+        }
+        
+        // Populate filter dropdowns
+        function populateFilters() {
+            // Get unique bins
+            const bins = [...new Set(allPartsData.map(p => p.Bin).filter(b => b))].sort();
+            const binFilter = document.getElementById('binFilter');
+            bins.forEach(bin => {
+                const option = document.createElement('option');
+                option.value = bin;
+                option.textContent = bin;
+                binFilter.appendChild(option);
+            });
+            
+            // Get unique categories
+            const categories = [...new Set(allPartsData.map(p => p.Category).filter(c => c))].sort();
+            const categoryFilter = document.getElementById('categoryFilter');
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categoryFilter.appendChild(option);
+            });
+        }
+        
+        // Apply filters
+        function applyFilters() {
+            currentFilters.bin = document.getElementById('binFilter').value;
+            currentFilters.category = document.getElementById('categoryFilter').value;
+            currentFilters.stockLevel = document.getElementById('stockFilter').value;
+            currentFilters.binChecked = document.getElementById('binCheckedFilter').value;
+            currentFilters.readyPirana = document.getElementById('readyPiranaFilter').value;
+            currentFilters.addedPirana = document.getElementById('addedPiranaFilter').value;
+            displayFilteredParts();
+        }
+        
+        // Clear filters
+        function clearFilters() {
+            document.getElementById('binFilter').value = '';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('stockFilter').value = '';
+            document.getElementById('binCheckedFilter').value = '';
+            document.getElementById('readyPiranaFilter').value = '';
+            document.getElementById('addedPiranaFilter').value = '';
+            document.getElementById('searchInput').value = '';
+            currentFilters = { bin: '', category: '', stockLevel: '', binChecked: '', readyPirana: '', addedPirana: '' };
+            displayFilteredParts();
+        }
+        
+        // Display filtered and sorted parts
+        function displayFilteredParts() {
+            let filtered = allPartsData;
+            
+            // Apply bin filter
+            if (currentFilters.bin) {
+                filtered = filtered.filter(p => p.Bin === currentFilters.bin);
+            }
+            
+            // Apply category filter
+            if (currentFilters.category) {
+                filtered = filtered.filter(p => p.Category === currentFilters.category);
+            }
+            
+            // Apply stock level filter
+            if (currentFilters.stockLevel) {
+                filtered = filtered.filter(p => {
+                    const current = parseFloat(p.Current) || 0;
+                    const min = parseFloat(p.Min) || 0;
+                    const isCritical = p.Critical === 'True' || p.Critical === 'TRUE';
+                    
+                    if (currentFilters.stockLevel === 'critical') {
+                        return current === 0;
+                    } else if (currentFilters.stockLevel === 'low') {
+                        return current > 0 && current <= min;
+                    } else if (currentFilters.stockLevel === 'ok') {
+                        return current > min;
+                    }
+                    return true;
+                });
+            }
+            
+            // Apply bin checked filter
+            if (currentFilters.binChecked) {
+                filtered = filtered.filter(p => {
+                    const isChecked = p['Bin Checked'] === 'TRUE';
+                    if (currentFilters.binChecked === 'checked') {
+                        return isChecked;
+                    } else if (currentFilters.binChecked === 'unchecked') {
+                        return !isChecked;
+                    }
+                    return true;
+                });
+            }
+            
+            // Apply ready for Pirana filter
+            if (currentFilters.readyPirana) {
+                filtered = filtered.filter(p => {
+                    const isReady = p['Ready for Pirana'] === 'TRUE';
+                    if (currentFilters.readyPirana === 'ready') {
+                        return isReady;
+                    } else if (currentFilters.readyPirana === 'not_ready') {
+                        return !isReady;
+                    }
+                    return true;
+                });
+            }
+            
+            // Apply added to Pirana filter
+            if (currentFilters.addedPirana) {
+                filtered = filtered.filter(p => {
+                    const isAdded = p['Added to Pirana'] === 'TRUE';
+                    if (currentFilters.addedPirana === 'added') {
+                        return isAdded;
+                    } else if (currentFilters.addedPirana === 'not_added') {
+                        return !isAdded;
+                    }
+                    return true;
+                });
+            }
+            
+            // Sort
+            filtered = sortPartsList(filtered, currentSort);
+            
+            // Display
+            document.getElementById('resultsCount').textContent = `${filtered.length} parts`;
+            displayParts(filtered, 'allParts');
+        }
+        
+        // Sort parts
+        function sortParts() {
+            currentSort = document.getElementById('sortSelect').value;
+            displayFilteredParts();
+        }
+        
+        function sortPartsList(parts, sortBy) {
+            const sorted = [...parts];
+            switch(sortBy) {
+                case 'code':
+                    sorted.sort((a, b) => (a['Stock Code'] || '').localeCompare(b['Stock Code'] || ''));
+                    break;
+                case 'bin':
+                    sorted.sort((a, b) => (a.Bin || 'ZZZ').localeCompare(b.Bin || 'ZZZ'));
+                    break;
+                case 'stock':
+                    sorted.sort((a, b) => {
+                        const aStock = parseFloat(a.Current) || 0;
+                        const bStock = parseFloat(b.Current) || 0;
+                        return aStock - bStock;
+                    });
+                    break;
+                case 'order':
+                    sorted.sort((a, b) => {
+                        const aOrder = calculateOrderQty(a);
+                        const bOrder = calculateOrderQty(b);
+                        return bOrder - aOrder;
+                    });
+                    break;
+                case 'critical':
+                    sorted.sort((a, b) => {
+                        const aCrit = a.Critical === 'True' || a.Critical === 'TRUE';
+                        const bCrit = b.Critical === 'True' || b.Critical === 'TRUE';
+                        if (aCrit && !bCrit) return -1;
+                        if (!aCrit && bCrit) return 1;
+                        const aStock = parseFloat(a.Current) || 0;
+                        const bStock = parseFloat(b.Current) || 0;
+                        return aStock - bStock;
+                    });
+                    break;
+            }
+            return sorted;
+        }
+        
+        // Calculate order quantity needed - handles TBC and empty Min values
+        function calculateOrderQty(part) {
+            const current = parseFloat(part.Current) || 0;
+            const minStr = String(part.Min || '').trim().toUpperCase();
+            const maxStr = String(part.Max || '').trim().toUpperCase();
+            
+            // Try to get Max from part data first
+            let max = null;
+            if (maxStr && maxStr !== 'TBC' && maxStr !== 'NONE' && maxStr !== '') {
+                const maxParsed = parseFloat(maxStr);
+                if (!isNaN(maxParsed)) {
+                    max = maxParsed;
+                }
+            }
+            
+            // If no Max set, try to calculate from Min
+            if (!max) {
+                // If Min is TBC or empty, we can't calculate order qty
+                if (!minStr || minStr === 'TBC' || minStr === 'NONE') {
+                    return null; // Can't calculate
+                }
+                
+                let min = parseFloat(minStr);
+                if (isNaN(min)) {
+                    return null; // Can't calculate
+                }
+                
+                // Default Max to Min * 2 for parts with numeric Min
+                max = min * 2;
+            }
+            
+            // Calculate order quantity
+            const orderQty = Math.max(0, max - current);
+            return Math.ceil(orderQty);
+        }
+        
+        // Check if part needs ordering
+        function needsOrdering(part) {
+            const orderQty = calculateOrderQty(part);
+            return orderQty !== null && orderQty > 0;
+        }
+        
+        // Check if part is low stock
+        function isLowStock(part) {
+            const current = parseFloat(part.Current) || 0;
+            const minStr = String(part.Min || '').trim().toUpperCase();
+            
+            if (!minStr || minStr === 'TBC' || minStr === 'NONE') {
+                return false; // Can't determine without Min
+            }
+            
+            const min = parseFloat(minStr);
+            if (isNaN(min)) {
+                return false;
+            }
+            
+            return current > 0 && current <= min;
+        }
+        
+        // Load order list
+        async function loadOrderList() {
+            showLoading('orderParts');
+            
+            // Get parts that need ordering (only those with numeric Min values)
+            const partsToOrder = allPartsData.filter(part => needsOrdering(part));
+            
+            // Sort by urgency (critical and out of stock first)
+            const sorted = sortOrderList(partsToOrder, 'urgent');
+            
+            document.getElementById('orderResultsCount').textContent = `${sorted.length} parts need ordering`;
+            document.getElementById('orderCount').textContent = sorted.length;
+            
+            if (sorted.length > 0) {
+                document.getElementById('orderSummary').classList.add('show');
+            } else {
+                document.getElementById('orderSummary').classList.remove('show');
+            }
+            
+            displayParts(sorted, 'orderParts');
+        }
+        
+        // Sort order list
+        function sortOrderList(parts = null, sortBy = null) {
+            const partsToSort = parts || allPartsData.filter(part => needsOrdering(part));
+            
+            const sortMethod = sortBy || document.getElementById('orderSortSelect')?.value || 'urgent';
+            const sorted = [...partsToSort];
+            
+            switch(sortMethod) {
+                case 'urgent':
+                    sorted.sort((a, b) => {
+                        const aCrit = a.Critical === 'True' || a.Critical === 'TRUE';
+                        const bCrit = b.Critical === 'True' || b.Critical === 'TRUE';
+                        const aStock = parseFloat(a.Current) || 0;
+                        const bStock = parseFloat(b.Current) || 0;
+                        
+                        // Critical out of stock first
+                        if (aCrit && aStock === 0 && !(bCrit && bStock === 0)) return -1;
+                        if (bCrit && bStock === 0 && !(aCrit && aStock === 0)) return 1;
+                        
+                        // Then critical low stock
+                        if (aCrit && !bCrit) return -1;
+                        if (bCrit && !aCrit) return 1;
+                        
+                        // Then by stock level (lowest first)
+                        return aStock - bStock;
+                    });
+                    break;
+                case 'quantity':
+                    sorted.sort((a, b) => {
+                        const aQty = calculateOrderQty(a) || 0;
+                        const bQty = calculateOrderQty(b) || 0;
+                        return bQty - aQty;
+                    });
+                    break;
+                case 'bin':
+                    sorted.sort((a, b) => (a.Bin || 'ZZZ').localeCompare(b.Bin || 'ZZZ'));
+                    break;
+                case 'category':
+                    sorted.sort((a, b) => (a.Category || 'ZZZ').localeCompare(b.Category || 'ZZZ'));
+                    break;
+            }
+            
+            if (!parts) {
+                displayParts(sorted, 'orderParts');
+            }
+            
+            return sorted;
+        }
+        
+        // Load critical parts stats
+        async function loadCriticalStats() {
+            try {
+                const response = await fetch('/api/parts/critical');
+                const data = await response.json();
+                document.getElementById('criticalCount').textContent = data.parts.filter(p => p.Critical === 'True').length;
+                document.getElementById('lowStockCount').textContent = data.parts.length;
+            } catch (error) {
+                console.error('Failed to load critical stats');
+            }
+        }
+        
+        // Load critical parts tab
+        async function loadCriticalParts() {
+            showLoading('criticalParts');
+            try {
+                const response = await fetch('/api/parts/critical');
+                const data = await response.json();
+                const criticalOnly = data.parts.filter(p => p.Critical === 'True' || p.Critical === 'TRUE');
+                document.getElementById('criticalResultsCount').textContent = `${criticalOnly.length} critical parts`;
+                displayParts(criticalOnly, 'criticalParts');
+            } catch (error) {
+                showError('criticalParts', 'Failed to load critical parts');
+            }
+        }
+        
+        // Load low stock parts tab
+        async function loadLowStockParts() {
+            showLoading('lowstockParts');
+            try {
+                // Get parts below their Min (only those with numeric Min)
+                const lowStock = allPartsData.filter(part => {
+                    const current = parseFloat(part.Current) || 0;
+                    const minStr = String(part.Min || '').trim().toUpperCase();
+                    
+                    if (!minStr || minStr === 'TBC' || minStr === 'NONE') {
+                        return false;
+                    }
+                    
+                    const min = parseFloat(minStr);
+                    if (isNaN(min)) {
+                        return false;
+                    }
+                    
+                    return current <= min;
+                });
+                
+                document.getElementById('lowstockResultsCount').textContent = `${lowStock.length} parts below minimum`;
+                displayParts(lowStock, 'lowstockParts');
+            } catch (error) {
+                showError('lowstockParts', 'Failed to load low stock parts');
+            }
+        }
+        
+        // Search parts
+        async function searchParts() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!query) {
+                displayFilteredParts();
+                return;
+            }
+            
+            const results = allPartsData.filter(part => {
+                const stockCode = (part['Stock Code'] || '').toLowerCase();
+                const description = (part.Description || '').toLowerCase();
+                const category = (part.Category || '').toLowerCase();
+                const bin = (part.Bin || '').toLowerCase();
+                
+                return stockCode.includes(query) || 
+                       description.includes(query) || 
+                       category.includes(query) ||
+                       bin.includes(query);
+            });
+            
+            document.getElementById('resultsCount').textContent = `${results.length} results for "${query}"`;
+            displayParts(results, 'allParts');
+        }
+        
+        // Display parts in container
+        function displayParts(parts, containerId) {
+            const container = document.getElementById(containerId);
+            
+            if (parts.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📦</div>
+                        <p>No parts found</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = parts.map((part, index) => createPartCard(part, index, containerId)).join('');
+        }
+        
+        // Toggle part card expansion
+        function toggleCard(containerId, index) {
+            const card = document.getElementById(`card-${containerId}-${index}`);
+            card.classList.toggle('expanded');
+        }
+        
+        // Create part card HTML - handles TBC/empty/numeric Min values
+        function createPartCard(part, index, containerId) {
+            const isCritical = part.Critical === 'True' || part.Critical === 'TRUE';
+            const current = parseFloat(part.Current) || 0;
+            const minStr = String(part.Min || '').trim().toUpperCase();
+            
+            // Parse Min value
+            let min = null;
+            let minDisplay = minStr;
+            let hasNumericMin = false;
+            
+            if (minStr && minStr !== 'TBC' && minStr !== 'NONE' && minStr !== '') {
+                const minParsed = parseFloat(minStr);
+                if (!isNaN(minParsed)) {
+                    min = minParsed;
+                    minDisplay = minParsed;
+                    hasNumericMin = true;
+                }
+            }
+            
+            // Calculate Max - use actual value from part or calculate
+            const maxStr = String(part.Max || '').trim().toUpperCase();
+            let max = null;
+            let maxDisplay = '';
+            let orderQty = null;
+            
+            // Try to parse Max from part data
+            if (maxStr && maxStr !== 'TBC' && maxStr !== 'NONE' && maxStr !== '') {
+                const maxParsed = parseFloat(maxStr);
+                if (!isNaN(maxParsed)) {
+                    max = maxParsed;
+                    maxDisplay = maxParsed;
+                }
+            }
+            
+            // If no Max set but we have numeric Min, suggest Min * 2
+            if (!max && hasNumericMin) {
+                maxDisplay = min * 2;  // Suggested value
+            }
+            
+            // Calculate order quantity
+            if (max && hasNumericMin) {
+                orderQty = calculateOrderQty(part);
+            }
+            
+            // Determine stock status
+            const isOutOfStock = current === 0;
+            const isLowStockValue = hasNumericMin && isLowStock(part);
+            const needsOrderingValue = hasNumericMin && needsOrdering(part);
+            
+            let stockClass = 'ok';
+            let badgeClass = 'neutral';
+            let badgeText = 'IN STOCK';
+            
+            if (isCritical && isOutOfStock) {
+                stockClass = 'critical';
+                badgeClass = 'critical';
+                badgeText = 'CRITICAL OUT';
+            } else if (isCritical && isLowStockValue) {
+                stockClass = 'critical';
+                badgeClass = 'critical';
+                badgeText = 'CRITICAL LOW';
+            } else if (isCritical) {
+                badgeClass = 'ok';
+                badgeText = 'CRITICAL';
+            } else if (isOutOfStock) {
+                stockClass = 'critical';
+                badgeClass = 'critical';
+                badgeText = 'OUT OF STOCK';
+            } else if (isLowStockValue) {
+                stockClass = 'low';
+                badgeClass = 'low';
+                badgeText = 'LOW STOCK';
+            }
+            
+            const binChecked = part['Bin Checked'] === 'TRUE';
+            const binLocation = part.Bin ? 
+                `<div class="bin-location">${binChecked ? '✓' : '📍'} ${part.Bin}${binChecked ? ' <span style="color: #4caf50; font-size: 11px;">✓</span>' : ''}</div>` : 
+                `<div class="bin-location no-bin">⚠️ NO BIN</div>`;
+            
+            // Stock bar percentage (only if numeric Min exists)
+            let stockBar = '';
+            if (hasNumericMin) {
+                const stockPercent = max > 0 ? Math.min((current / max) * 100, 100) : 0;
+                let barClass = 'ok';
+                if (current === 0) barClass = 'critical';
+                else if (current < min) barClass = 'low';
+                else if (current > max) barClass = 'over';
+                
+                stockBar = `
+                    <div class="stock-bar-container">
+                        <div class="stock-bar ${barClass}" style="width: ${stockPercent}%"></div>
+                    </div>
+                `;
+            }
+            
+            // Order quantity display (only if we have a valid order quantity > 0)
+            const orderQtyDisplay = (orderQty !== null && orderQty > 0) ? 
+                `<div class="order-quantity ${isCritical && isOutOfStock ? 'urgent' : ''}">
+                    📦 Order: ${orderQty} ${part['Purchase Unit'] || 'units'}
+                </div>` : '';
+            
+            // Min/Max display
+            const minMaxDisplay = hasNumericMin ? 
+                `<div class="quick-info-item">Min: <strong>${minDisplay}</strong></div>
+                 <div class="quick-info-item">Max: <strong>${maxDisplay}</strong></div>` :
+                `<div class="quick-info-item">Min: <strong>${minDisplay || 'Not set'}</strong></div>
+                 <div class="quick-info-item" style="color: #ff9800;">⚠️ Min TBC - can't calculate order qty</div>`;
+            
+            // Order calculation detail (only if we have valid order qty > 0)
+            const orderCalcDetail = (orderQty !== null && orderQty > 0) ? `
+                <div class="detail-item" style="grid-column: 1 / -1;">
+                    <div class="detail-label">Order Calculation</div>
+                    <div class="detail-value" style="color: #ff9800;">
+                        Max (${max || maxDisplay}) - Current (${current}) = <strong>${orderQty}</strong> ${part['Purchase Unit'] || 'units'}
+                    </div>
+                </div>
+            ` : '';
+            
+            return `
+                <div class="part-card" id="card-${containerId}-${index}" onclick="toggleCard('${containerId}', ${index})">
+                    <div class="part-header">
+                        <div class="part-main-info">
+                            <div class="stock-code">${part['Stock Code'] || 'N/A'}</div>
+                            ${binLocation}
+                            ${orderQtyDisplay}
+                        </div>
+                        <div class="stock-status">
+                            <div class="stock-level ${stockClass}">${current}</div>
+                            <div class="stock-label">Current</div>
+                            <div class="badge ${badgeClass}">${badgeText}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="description">${part.Description || 'No description'}</div>
+                    
+                    <div class="quick-stock-info">
+                        ${minMaxDisplay}
+                        <div class="quick-info-item">Category: <strong>${part.Category || 'N/A'}</strong></div>
+                    </div>
+                    
+                    ${stockBar}
+                    
+                    <div class="details">
+                        <div class="detail-item">
+                            <div class="detail-label">Manufacturer PN</div>
+                            <div class="detail-value">${part['Manufacturer Part Number'] || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Supplier</div>
+                            <div class="detail-value">${part.Supplier || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Price</div>
+                            <div class="detail-value">${part.Price ? '£' + part.Price : 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Purchase Unit</div>
+                            <div class="detail-value">${part['Purchase Unit'] || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Issue Unit</div>
+                            <div class="detail-value">${part['Issue Unit'] || 'N/A'}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Store</div>
+                            <div class="detail-value">${part.Store || 'N/A'}</div>
+                        </div>
+                        ${orderCalcDetail}
+                    </div>
+                    
+                    <div class="stock-update" onclick="event.stopPropagation()">
+                        <!-- Row 1: Current & Bin -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 5px;">Current</label>
+                                <input type="number" id="current_${containerId}_${index}" value="${current}" min="0" step="1" style="width: 100%; padding: 14px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 18px; font-weight: 600; box-sizing: border-box;" />
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 5px;">Bin</label>
+                                <input type="text" id="bin_${containerId}_${index}" value="${part.Bin || ''}" placeholder="A12" style="width: 100%; padding: 14px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 18px; font-weight: 600; box-sizing: border-box;" />
+                            </div>
+                        </div>
+                        
+                        <!-- Row 2: Min & Max -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+                            <div>
+                                <label style="font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 5px;">Min</label>
+                                <input type="text" id="min_${containerId}_${index}" value="${minStr || ''}" placeholder="10 or TBC" style="width: 100%; padding: 14px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 18px; font-weight: 600; box-sizing: border-box;" />
+                            </div>
+                            <div>
+                                <label style="font-size: 11px; color: #666; font-weight: 600; text-transform: uppercase; display: block; margin-bottom: 5px;">Max</label>
+                                <input type="number" id="max_${containerId}_${index}" value="${max || maxDisplay || ''}" placeholder="${maxDisplay ? maxDisplay : ''}" min="0" step="1" style="width: 100%; padding: 14px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 18px; font-weight: 600; box-sizing: border-box;" />
+                            </div>
+                        </div>
+                        
+                        <!-- Row 3: Checkboxes -->
+                        <div style="display: grid; gap: 10px; margin-bottom: 15px;">
+                            <!-- Bin Checked -->
+                            <div style="padding: 12px; background: #f5f5f5; border-radius: 8px;">
+                                <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" id="bin_checked_${containerId}_${index}" ${part['Bin Checked'] === 'TRUE' ? 'checked' : ''} style="width: 22px; height: 22px; margin-right: 12px; cursor: pointer; accent-color: #4caf50; flex-shrink: 0;" />
+                                    <span style="font-size: 14px; font-weight: 600; color: #333; line-height: 1.3;">✓ Bin Location Verified</span>
+                                </label>
+                            </div>
+                            
+                            <!-- Ready for Pirana -->
+                            <div style="padding: 12px; background: #fff3e0; border-radius: 8px; border: 2px solid #ff9800;">
+                                <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" id="ready_pirana_${containerId}_${index}" ${part['Ready for Pirana'] === 'TRUE' ? 'checked' : ''} style="width: 22px; height: 22px; margin-right: 12px; cursor: pointer; accent-color: #ff9800; flex-shrink: 0;" />
+                                    <span style="font-size: 14px; font-weight: 600; color: #e65100; line-height: 1.3;">📋 Ready for Pirana</span>
+                                </label>
+                            </div>
+                            
+                            <!-- Added to Pirana -->
+                            <div style="padding: 12px; background: #e8f5e9; border-radius: 8px; border: 2px solid #4caf50;">
+                                <label style="display: flex; align-items: center; cursor: pointer; user-select: none;">
+                                    <input type="checkbox" id="added_pirana_${containerId}_${index}" ${part['Added to Pirana'] === 'TRUE' ? 'checked' : ''} style="width: 22px; height: 22px; margin-right: 12px; cursor: pointer; accent-color: #4caf50; flex-shrink: 0;" />
+                                    <span style="font-size: 14px; font-weight: 600; color: #2e7d32; line-height: 1.3;">✅ Added to Pirana</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Save Button -->
+                        <button onclick="updatePart('${part['Stock Code']}', '${containerId}', ${index})" style="width: 100%; padding: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 16px; cursor: pointer; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); transition: transform 0.2s;">
+                            💾 Save All Changes
+                        </button>
+                    </div>
+                    
+                    <span class="expand-icon">▼</span>
+                </div>
+            `;
+        }
+        
+        // Update part with all fields (Current, Min, Bin)
+        async function updatePart(stockCode, containerId, index) {
+            console.log('updatePart called:', stockCode, containerId, index);
+            
+            const currentInput = document.getElementById(`current_${containerId}_${index}`);
+            const minInput = document.getElementById(`min_${containerId}_${index}`);
+            const maxInput = document.getElementById(`max_${containerId}_${index}`);
+            const binInput = document.getElementById(`bin_${containerId}_${index}`);
+            const binCheckedInput = document.getElementById(`bin_checked_${containerId}_${index}`);
+            const readyPiranaInput = document.getElementById(`ready_pirana_${containerId}_${index}`);
+            const addedPiranaInput = document.getElementById(`added_pirana_${containerId}_${index}`);
+            
+            console.log('Inputs found:', {
+                current: currentInput?.value,
+                min: minInput?.value,
+                max: maxInput?.value,
+                bin: binInput?.value,
+                bin_checked: binCheckedInput?.checked,
+                ready_pirana: readyPiranaInput?.checked,
+                added_pirana: addedPiranaInput?.checked
+            });
+            
+            const updateData = {
+                stock_code: stockCode
+            };
+            
+            // Collect changes - send actual values, not empty strings
+            const current = currentInput?.value?.trim();
+            const min = minInput?.value?.trim();
+            const max = maxInput?.value?.trim();
+            const bin = binInput?.value?.trim();
+            const binChecked = binCheckedInput?.checked;
+            const readyPirana = readyPiranaInput?.checked;
+            const addedPirana = addedPiranaInput?.checked;
+            
+            if (current !== '' && current !== undefined) {
+                updateData.current = current;
+            }
+            if (min !== '' && min !== undefined) {
+                updateData.min = min;
+            }
+            if (max !== '' && max !== undefined) {
+                updateData.max = max;
+            }
+            if (bin !== '' && bin !== undefined) {
+                updateData.bin = bin;
+            }
+            // Always send checkbox statuses (true/false)
+            updateData.bin_checked = binChecked;
+            updateData.ready_pirana = readyPirana;
+            updateData.added_pirana = addedPirana;
+            
+            console.log('Update data:', updateData);
+            
+            // Must have at least one field to update (excluding stock_code and checkboxes which always send)
+            if (Object.keys(updateData).length === 4) {  // Just stock_code + 3 checkboxes
+                alert('No changes to save - please update at least one field');
+                return;
+            }
+            
+            // Show loading
+            const button = event.target;
+            const originalText = button.textContent;
+            button.textContent = '⏳ Saving...';
+            button.disabled = true;
+            
+            try {
+                console.log('Sending request to /api/parts/update-full');
+                const response = await fetch('/api/parts/update-full', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                console.log('Response status:', response.status);
+                const data = await response.json();
+                console.log('Response data:', data);
+                
+                if (data.success) {
+                    const fields = data.updated_fields.join(', ');
+                    showSuccess(`✓ Updated ${stockCode}: ${fields}`);
+                    
+                    // Update local data
+                    const partIndex = allPartsData.findIndex(p => p['Stock Code'] === stockCode);
+                    if (partIndex !== -1) {
+                        if (updateData.current) allPartsData[partIndex].Current = updateData.current;
+                        if (updateData.min) allPartsData[partIndex].Min = updateData.min;
+                        if (updateData.max) allPartsData[partIndex].Max = updateData.max;
+                        if (updateData.bin) allPartsData[partIndex].Bin = updateData.bin;
+                        allPartsData[partIndex]['Bin Checked'] = binChecked ? 'TRUE' : '';
+                        allPartsData[partIndex]['Ready for Pirana'] = readyPirana ? 'TRUE' : '';
+                        allPartsData[partIndex]['Added to Pirana'] = addedPirana ? 'TRUE' : '';
+                    }
+                    
+                    // Reload current view after a short delay
+                    setTimeout(() => {
+                        const activeTab = document.querySelector('.tab.active')?.textContent?.toLowerCase();
+                        if (activeTab === 'all') {
+                            displayFilteredParts();
+                        } else if (activeTab === 'critical') {
+                            loadCriticalParts();
+                        } else if (activeTab?.includes('low')) {
+                            loadLowStockParts();
+                        } else if (activeTab?.includes('order')) {
+                            loadOrderList();
+                        }
+                        
+                        // Update stats only (not full reload)
+                        loadCriticalStats();
+                    }, 500);
+                } else {
+                    console.error('Update failed:', data);
+                    alert('Failed to update: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error updating part:', error);
+                alert('Error updating part: ' + error.message);
+            } finally {
+                // Restore button
+                button.textContent = originalText;
+                button.disabled = false;
+            }
+        }
+        
+        // Legacy function for backwards compatibility
+        async function updateStock(stockCode, containerId, index) {
+            return updatePart(stockCode, containerId, index);
+        }
+        
+        // Switch tabs
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+            
+            // Load data if needed
+            if (tabName === 'all') {
+                if (allPartsData.length === 0) {
+                    loadAllParts();
+                } else {
+                    displayFilteredParts();
+                }
+            } else if (tabName === 'critical') {
+                loadCriticalParts();
+            } else if (tabName === 'lowstock') {
+                loadLowStockParts();
+            } else if (tabName === 'order') {
+                loadOrderList();
+            }
+        }
+        
+        // Show loading
+        function showLoading(containerId) {
+            document.getElementById(containerId).innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 20px;">Loading parts...</p>
+                </div>
+            `;
+        }
+        
+        // Show error
+        function showError(containerId, message) {
+            document.getElementById(containerId).innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚠️</div>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+        
+        // Show success message
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.textContent = message;
+            document.body.appendChild(successDiv);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+        
+        // Search on Enter key
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchParts();
+            }
+        });
+        
+        // Load initial data
+        loadAllParts();
+    </script>
+</body>
+</html>            gap: 8px;
+            margin-top: 15px;
+        }
+        
+        .search-box input {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .search-box button {
+            padding: 12px 18px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+            white-space: nowrap;
+        }
+        
+        .filters {
+            background: white;
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .filter-select {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            min-width: 120px;
+            cursor: pointer;
+        }
+        
+        .filter-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .clear-filters {
+            padding: 8px 16px;
+            background: #ff4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .tabs {
+            display: flex;
+            background: white;
+            border-bottom: 2px solid #e0e0e0;
+            overflow-x: auto;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px 10px;
+            text-align: center;
+            background: white;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            min-width: 70px;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .tab.order-tab {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .tab.order-tab.active {
+            background: #f57c00;
+            color: white;
+            border-bottom: 3px solid #e65100;
+        }
+        
+        .results-info {
+            background: white;
+            padding: 12px 15px;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sort-dropdown {
+            padding: 6px 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .content {
+            padding: 0;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .part-card {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .part-card:active {
+            background: #f9f9f9;
+        }
+        
+        .part-card.expanded {
+            background: #fafafa;
+        }
+        
+        .part-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .part-main-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .stock-code {
+            font-size: 16px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .bin-location {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        
+        .bin-location.no-bin {
+            background: #ff9800;
+        }
+        
+        .stock-status {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: flex-end;
+        }
+        
+        .stock-level {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        
+        .stock-level.critical {
+            color: #ff4444;
+        }
+        
+        .stock-level.low {
+            color: #ff9800;
+        }
+        
+        .stock-level.ok {
+            color: #00C851;
+        }
+        
+        .stock-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+        }
+        
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .badge.critical {
+            background: #ff4444;
+            color: white;
+        }
+        
+        .badge.low {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .badge.ok {
+            background: #00C851;
+            color: white;
+        }
+        
+        .badge.neutral {
+            background: #e0e0e0;
+            color: #666;
+        }
+        
+        .description {
+            color: #666;
+            font-size: 13px;
+            margin: 8px 0;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .part-card.expanded .description {
+            display: block;
+            -webkit-line-clamp: unset;
+        }
+        
+        .quick-stock-info {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+            font-size: 12px;
+        }
+        
+        .quick-info-item {
+            color: #666;
+        }
+        
+        .quick-info-item strong {
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .order-quantity {
+            display: inline-block;
+            background: #ff9800;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        
+        .order-quantity.urgent {
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .stock-bar-container {
+            margin-top: 10px;
+            background: #e0e0e0;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .stock-bar {
+            height: 100%;
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+        
+        .stock-bar.critical {
+            background: #ff4444;
+        }
+        
+        .stock-bar.low {
+            background: #ff9800;
+        }
+        
+        .stock-bar.ok {
+            background: #00C851;
+        }
+        
+        .stock-bar.over {
+            background: #2196F3;
+        }
+        
+        .order-summary {
+            position: sticky;
+            bottom: 0;
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+            padding: 15px;
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+        }
+        
+        .order-summary.show {
+            display: flex;
+        }
+        
+        .order-summary-text {
+            font-weight: 600;
+        }
+        
+        .order-summary-count {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        
+        .details {
+            display: none;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            font-size: 13px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .part-card.expanded .details {
+            display: grid;
+        }
+        
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .detail-label {
+            color: #999;
+            font-size: 10px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+        
+        .detail-value {
+            color: #333;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        
+        .expand-icon {
+            font-size: 12px;
+            color: #999;
+            margin-left: 8px;
+            transition: transform 0.3s;
+        }
+        
+        .part-card.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+        
+        .stock-update {
+            display: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+            gap: 8px;
+        }
+        
+        .part-card.expanded .stock-update {
+            display: flex;
+        }
+        
+        .stock-update input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .stock-update input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .stock-update button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        
+        .stock-update button:active {
+            background: #5568d3;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #00C851;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏭 EP Engineering Stores</h1>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search parts, description..." />
+            <button onclick="searchParts()">Search</button>
+        </div>
+    </div>
+    
+    <div class="filters">
+        <select class="filter-select" id="binFilter" onchange="applyFilters()">
+            <option value="">All Bins</option>
+        </select>
+        <select class="filter-select" id="categoryFilter" onchange="applyFilters()">
+            <option value="">All Categories</option>
+        </select>
+        <select class="filter-select" id="stockFilter" onchange="applyFilters()">
+            <option value="">All Stock Levels</option>
+            <option value="critical">Out of Stock</option>
+            <option value="low">Below Minimum</option>
+            <option value="ok">In Stock</option>
+        </select>
         <button class="clear-filters" onclick="clearFilters()">Clear</button>
     </div>
     
