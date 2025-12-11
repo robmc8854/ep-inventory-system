@@ -525,6 +525,87 @@
             margin-top: 5px;
         }
         
+        .progress-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .progress-section h2 {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .progress-item {
+            margin-bottom: 15px;
+        }
+        
+        .progress-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .progress-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .progress-percentage {
+            font-size: 16px;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .progress-bar-outer {
+            background: #e0e0e0;
+            height: 24px;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-bar-inner {
+            height: 100%;
+            border-radius: 12px;
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        
+        .progress-bar-inner.bin-verified {
+            background: linear-gradient(90deg, #00C851 0%, #00E676 100%);
+        }
+        
+        .progress-bar-inner.ready-pirana {
+            background: linear-gradient(90deg, #ff9800 0%, #ffb74d 100%);
+        }
+        
+        .progress-bar-inner.added-pirana {
+            background: linear-gradient(90deg, #4caf50 0%, #66bb6a 100%);
+        }
+        
+        .progress-bar-inner.stock-levels {
+            background: linear-gradient(90deg, #2196F3 0%, #42a5f5 100%);
+        }
+        
         .success-message {
             position: fixed;
             top: 20px;
@@ -623,6 +704,45 @@
                     <div class="stat-label">Need Order</div>
                 </div>
             </div>
+            <div class="progress-section">
+                <h2>📊 Progress Tracking</h2>
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <div class="progress-label">✓ Bin Locations Verified</div>
+                        <div class="progress-percentage" id="binVerifiedPercent">0%</div>
+                    </div>
+                    <div class="progress-bar-outer">
+                        <div class="progress-bar-inner bin-verified" id="binVerifiedBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <div class="progress-label">📋 Ready for Pirana</div>
+                        <div class="progress-percentage" id="readyPiranaPercent">0%</div>
+                    </div>
+                    <div class="progress-bar-outer">
+                        <div class="progress-bar-inner ready-pirana" id="readyPiranaBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <div class="progress-label">✅ Added to Pirana</div>
+                        <div class="progress-percentage" id="addedPiranaPercent">0%</div>
+                    </div>
+                    <div class="progress-bar-outer">
+                        <div class="progress-bar-inner added-pirana" id="addedPiranaBar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <div class="progress-label">🎯 Min/Max Stock Levels Set</div>
+                        <div class="progress-percentage" id="stockLevelsPercent">0%</div>
+                    </div>
+                    <div class="progress-bar-outer">
+                        <div class="progress-bar-inner stock-levels" id="stockLevelsBar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
             <div id="allParts"></div>
         </div>
         
@@ -700,6 +820,9 @@
                 // Populate filter dropdowns
                 populateFilters();
                 
+                // Update progress metrics
+                updateProgressMetrics();
+                
                 // Show parts
                 displayFilteredParts();
                 
@@ -708,6 +831,50 @@
             } catch (error) {
                 showError('allParts', 'Failed to load parts');
             }
+        }
+        
+        // Update progress metrics
+        function updateProgressMetrics() {
+            const totalParts = allPartsData.length;
+            
+            if (totalParts === 0) {
+                return;
+            }
+            
+            // Calculate Bin Verified percentage
+            const binVerified = allPartsData.filter(p => p['Bin Checked'] === 'TRUE').length;
+            const binVerifiedPercent = Math.round((binVerified / totalParts) * 100);
+            document.getElementById('binVerifiedPercent').textContent = binVerifiedPercent + '%';
+            document.getElementById('binVerifiedBar').style.width = binVerifiedPercent + '%';
+            
+            // Calculate Ready for Pirana percentage
+            const readyPirana = allPartsData.filter(p => p['Ready for Pirana'] === 'TRUE').length;
+            const readyPiranaPercent = Math.round((readyPirana / totalParts) * 100);
+            document.getElementById('readyPiranaPercent').textContent = readyPiranaPercent + '%';
+            document.getElementById('readyPiranaBar').style.width = readyPiranaPercent + '%';
+            
+            // Calculate Added to Pirana percentage
+            const addedPirana = allPartsData.filter(p => p['Added to Pirana'] === 'TRUE').length;
+            const addedPiranaPercent = Math.round((addedPirana / totalParts) * 100);
+            document.getElementById('addedPiranaPercent').textContent = addedPiranaPercent + '%';
+            document.getElementById('addedPiranaBar').style.width = addedPiranaPercent + '%';
+            
+            // Calculate Stock Levels Set percentage (parts with numeric Min and Max)
+            const stockLevelsSet = allPartsData.filter(p => {
+                const minStr = String(p.Min || '').trim().toUpperCase();
+                const maxStr = String(p.Max || '').trim().toUpperCase();
+                
+                // Check if Min is numeric
+                const hasNumericMin = minStr && minStr !== 'TBC' && minStr !== 'NONE' && !isNaN(parseFloat(minStr));
+                
+                // Check if Max is numeric
+                const hasNumericMax = maxStr && maxStr !== 'TBC' && maxStr !== 'NONE' && !isNaN(parseFloat(maxStr));
+                
+                return hasNumericMin && hasNumericMax;
+            }).length;
+            const stockLevelsPercent = Math.round((stockLevelsSet / totalParts) * 100);
+            document.getElementById('stockLevelsPercent').textContent = stockLevelsPercent + '%';
+            document.getElementById('stockLevelsBar').style.width = stockLevelsPercent + '%';
         }
         
         // Populate filter dropdowns
@@ -1451,8 +1618,9 @@
                             loadOrderList();
                         }
                         
-                        // Update stats only (not full reload)
+                        // Update stats and progress metrics
                         loadCriticalStats();
+                        updateProgressMetrics();
                     }, 500);
                 } else {
                     console.error('Update failed:', data);
