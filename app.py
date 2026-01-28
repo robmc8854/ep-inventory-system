@@ -52,7 +52,21 @@ def get_google_sheet():
 @app.route('/')
 def index():
     """Serve the main HTML file"""
-    return send_from_directory('.', 'index.html')
+    try:
+        # Try multiple filenames
+        for filename in ['index.html', 'ep_stores_inventory.html']:
+            if os.path.exists(filename):
+                return send_from_directory('.', filename)
+        
+        # If no file found, list what files we DO have
+        files = os.listdir('.')
+        return jsonify({
+            'error': 'HTML file not found',
+            'available_files': files,
+            'looking_for': ['index.html', 'ep_stores_inventory.html']
+        }), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/parts', methods=['GET'])
 def get_all_parts():
