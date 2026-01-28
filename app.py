@@ -5,7 +5,7 @@ from google.oauth2.service_account import Credentials
 import os
 import json
 
-app = Flask(__name__, static_folder='.')
+app = Flask(__name__, static_folder='static', static_url_path='/static')
 CORS(app)
 
 # ============================================
@@ -53,17 +53,20 @@ def get_google_sheet():
 def index():
     """Serve the main HTML file"""
     try:
-        # Try multiple filenames
-        for filename in ['index.html', 'ep_stores_inventory.html']:
-            if os.path.exists(filename):
-                return send_from_directory('.', filename)
+        # Try multiple locations
+        for folder, filename in [('static', 'index.html'), ('static', 'ep_stores_inventory.html'), ('.', 'index.html')]:
+            filepath = os.path.join(folder, filename) if folder != '.' else filename
+            if os.path.exists(filepath):
+                return send_from_directory(folder, filename)
         
         # If no file found, list what files we DO have
         files = os.listdir('.')
+        static_files = os.listdir('static') if os.path.exists('static') else []
         return jsonify({
             'error': 'HTML file not found',
-            'available_files': files,
-            'looking_for': ['index.html', 'ep_stores_inventory.html']
+            'root_files': files,
+            'static_files': static_files,
+            'looking_for': ['static/index.html', 'static/ep_stores_inventory.html']
         }), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 500
